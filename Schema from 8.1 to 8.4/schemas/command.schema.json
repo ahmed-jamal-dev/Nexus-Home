@@ -1,0 +1,38 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "NexusLink command message",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "messageType", "messageId", "commandId", "correlationId", "issuedAt", "expiresAt", "target", "command"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "messageType": { "const": "command" },
+    "messageId": { "$ref": "#/definitions/uuid" },
+    "commandId": { "$ref": "#/definitions/uuid" },
+    "correlationId": { "$ref": "#/definitions/uuid" },
+    "issuedAt": { "$ref": "#/definitions/utc" },
+    "expiresAt": { "$ref": "#/definitions/utc" },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["homeId", "deviceId"],
+      "properties": {
+        "homeId": { "$ref": "#/definitions/uuid" },
+        "deviceId": { "$ref": "#/definitions/uuid" }
+      }
+    },
+    "command": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "parameters"],
+      "properties": {
+        "type": { "type": "string", "pattern": "^[a-z]+(\\.[a-z_]+)+$" },
+        "parameters": { "type": "object" }
+      }
+    }
+  },
+  "definitions": {
+    "uuid": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$" },
+    "utc": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$" }
+  }
+}

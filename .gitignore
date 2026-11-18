@@ -1,0 +1,43 @@
+# Environment files - NEVER commit real credentials
+.env
+.env.local
+.env.*.local
+
+# Docker
+.docker/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Build artifacts
+bin/
+obj/
+*.dll
+*.pdb
+
+# Test results
+TestResults/
+*.trx
+coverage/
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Claude/agent internal files
+.docs/.claude/
+.docs/.agents/
+.docs/.document_redesign_work/
+.claude/
+.agents/
+.document_redesign_work/
+
+# Local development overrides
+*.local

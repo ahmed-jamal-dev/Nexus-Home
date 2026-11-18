@@ -1,0 +1,143 @@
+erDiagram
+    USERS {
+        uuid id PK
+        varchar email UK
+        varchar password_hash
+        varchar full_name
+        boolean is_active
+        timestamptz created_at
+        timestamptz updated_at
+    }
+    HOMES {
+        uuid id PK
+        varchar name
+        varchar address_line1
+        varchar address_line2
+        varchar city
+        varchar state_province
+        varchar postal_code
+        timestamptz created_at
+        timestamptz updated_at
+    }
+    MEMBERSHIPS {
+        uuid id PK
+        uuid user_id FK
+        uuid home_id FK
+        varchar role
+        timestamptz joined_at
+        timestamptz created_at
+        timestamptz updated_at
+    }
+    ROOMS {
+        uuid id PK
+        uuid home_id FK
+        varchar name
+        timestamptz created_at
+        timestamptz updated_at
+    }
+    DEVICES {
+        uuid id PK
+        uuid home_id FK
+        uuid room_id FK
+        varchar external_id UK
+        varchar name
+        varchar device_type
+        text capabilities
+        jsonb metadata
+        varchar connection_status
+        timestamptz last_seen_at
+        jsonb reported_state
+        timestamptz reported_at
+        bigint state_version
+        timestamptz removed_at
+        timestamptz created_at
+        timestamptz updated_at
+    }
+    DEVICE_TELEMETRY {
+        uuid id PK
+        timestamptz timestamp PK
+        uuid device_id FK
+        varchar metric_name
+        float metric_value
+        varchar metric_unit
+        timestamptz created_at
+        timestamptz updated_at
+    }
+    INVITATIONS {
+        uuid id PK
+        uuid home_id FK
+        varchar invitee_email
+        varchar role
+        varchar token UK
+        timestamptz expires_at
+        boolean is_accepted
+        timestamptz created_at
+        timestamptz updated_at
+    }
+    PERMISSIONS {
+        uuid id PK
+        uuid grantor_membership_id FK
+        uuid grantee_membership_id FK
+        varchar permission_type
+        varchar target_type
+        uuid target_id
+        varchar effect
+        timestamptz granted_at
+        timestamptz created_at
+        timestamptz updated_at
+    }
+    SETTINGS {
+        uuid id PK
+        uuid user_id FK UK
+        varchar avatar_url
+        boolean notification_enabled
+        timestamptz created_at
+        timestamptz updated_at
+    }
+    AI_ACTION_AUDIT {
+        uuid id PK
+        uuid user_id FK
+        uuid device_id FK
+        varchar action_type
+        jsonb action_parameters
+        varchar outcome
+        timestamptz timestamp
+        timestamptz created_at
+        timestamptz updated_at
+    }
+    DEVICE_COMMANDS {
+        uuid id PK
+        uuid command_id UK
+        uuid correlation_id
+        uuid home_id FK
+        uuid device_id FK
+        uuid requested_by_user_id FK
+        varchar initiator_type
+        varchar type
+        jsonb parameters
+        varchar status
+        varchar idempotency_key
+        timestamptz created_at
+        timestamptz sent_at
+        timestamptz acknowledged_at
+        timestamptz completed_at
+        timestamptz expires_at
+        jsonb reported_state
+        varchar error_code
+        varchar error_message
+    }
+    USERS ||--o{ MEMBERSHIPS : has
+    HOMES ||--o{ MEMBERSHIPS : includes
+    HOMES ||--o{ ROOMS : contains
+    HOMES ||--o{ DEVICES : owns
+    ROOMS ||--o{ DEVICES : "groups (home_id,room_id)->(home_id,id)"
+    DEVICES ||--o{ DEVICE_TELEMETRY : emits
+    HOMES ||--o{ INVITATIONS : offers
+    MEMBERSHIPS ||--o{ PERMISSIONS : grantor
+    MEMBERSHIPS ||--o{ PERMISSIONS : grantee
+    USERS ||--o{ SETTINGS : configures
+    USERS ||--o{ AI_ACTION_AUDIT : requests
+    DEVICES ||--o{ AI_ACTION_AUDIT : affected_by
+    HOMES ||--o{ DEVICE_COMMANDS : contains
+    DEVICES ||--o{ DEVICE_COMMANDS : "targets (home_id,device_id)->(home_id,id)"
+    USERS ||--o{ DEVICE_COMMANDS : "requests (CASCADE)"

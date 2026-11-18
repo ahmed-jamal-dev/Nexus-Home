@@ -1,0 +1,32 @@
+# Environment files - NEVER commit real credentials
+.env
+.env.local
+.env.*.local
+
+# Docker
+.docker/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Build artifacts
+bin/
+obj/
+*.dll
+*.pdb
+
+# Test results
+TestResults/
+*.trx
+coverage/
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
