@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OpenApi;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using NexusHome.Api.Endpoints.Authentication;
@@ -139,6 +140,17 @@ public class Program
         builder.Logging.ClearProviders();
         builder.Logging.AddConsole();
         builder.Logging.AddDebug();
+        builder.Logging.AddConfiguration(builder.Configuration.GetSection("Logging"));
+
+        // Suppress EF Core verbose internal logs in development
+        builder.Logging.AddFilter("Microsoft.EntityFrameworkCore", LogLevel.Warning);
+        builder.Logging.AddFilter("Microsoft.EntityFrameworkCore.Database.Command", LogLevel.Warning);
+        builder.Logging.AddFilter("Microsoft.EntityFrameworkCore.Infrastructure", LogLevel.Warning);
+        builder.Logging.AddFilter("Microsoft.EntityFrameworkCore.Model", LogLevel.Warning);
+        builder.Logging.AddFilter("Microsoft.EntityFrameworkCore.Database.Connection", LogLevel.Warning);
+        builder.Logging.AddFilter("Microsoft.EntityFrameworkCore.ChangeTracking", LogLevel.Warning);
+        builder.Logging.AddFilter("Microsoft.EntityFrameworkCore.Update", LogLevel.Warning);
+        builder.Logging.AddFilter("Microsoft.AspNetCore.Routing", LogLevel.Warning);
 
         var app = builder.Build();
 

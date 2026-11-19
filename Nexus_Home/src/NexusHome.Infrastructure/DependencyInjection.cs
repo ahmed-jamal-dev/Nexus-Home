@@ -32,11 +32,12 @@ public static class DependencyInjection
                     errorCodesToAdd: null);
             });
 
-            // Enable detailed errors in development
+            // Enable detailed errors in development (but NOT sensitive data logging)
             if (Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development")
             {
                 options.EnableDetailedErrors();
-                options.EnableSensitiveDataLogging();
+                // Sensitive data logging disabled by default - enable only when debugging data issues
+                // options.EnableSensitiveDataLogging();
             }
         });
 
