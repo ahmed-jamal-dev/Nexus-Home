@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/NexusHome.API/NexusHome.API.csproj" />
+    <Project Path="src/NexusHome.Application/NexusHome.Application.csproj" />
+    <Project Path="src/NexusHome.Domain/NexusHome.Domain.csproj" />
+    <Project Path="src/NexusHome.Infrastructure/NexusHome.Infrastructure.csproj" />
+  </Folder>
+</Solution>

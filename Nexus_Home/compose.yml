@@ -27,7 +27,25 @@ services:
       -c log_statement=all
       -c log_destination=stderr
 
+  redis:
+    image: redis:7-alpine
+    container_name: nexus-home-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - nexus_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
 volumes:
   nexus_postgres_data:
     driver: local
     name: nexus_home_postgres_data
+  nexus_redis_data:
+    driver: local
+    name: nexus_home_redis_data

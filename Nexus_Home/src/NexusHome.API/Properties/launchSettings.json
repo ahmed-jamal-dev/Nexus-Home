@@ -1,0 +1,25 @@
+﻿{
+  "$schema": "https://json.schemastore.org/launchsettings.json",
+  "profiles": {
+    "http": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "launchBrowser": false,
+      "applicationUrl": "http://localhost:5132",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "CONNECTIONSTRINGS__NEXUSHOME": "Host=localhost;Port=5432;Database=nexus_home;Username=nexus;Password=CC0bOSfGtYPECtAHy87LX9thLVX3q73x"
+      }
+    },
+    "https": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "launchBrowser": false,
+      "applicationUrl": "https://localhost:7190;http://localhost:5132",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "CONNECTIONSTRINGS__NEXUSHOME": "Host=localhost;Port=5432;Database=nexus_home;Username=nexus;Password=CC0bOSfGtYPECtAHy87LX9thLVX3q73x"
+      }
+    }
+  }
+}
