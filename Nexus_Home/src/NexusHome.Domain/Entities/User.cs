@@ -53,6 +53,11 @@ public class User : Entity
     public ICollection<AIActionAudit> AIActionAudits { get; private set; } = new List<AIActionAudit>();
 
     /// <summary>
+    /// Refresh tokens for this user.
+    /// </summary>
+    public ICollection<RefreshToken> RefreshTokens { get; private set; } = new List<RefreshToken>();
+
+    /// <summary>
     /// User settings.
     /// </summary>
     public Settings? Settings { get; private set; }

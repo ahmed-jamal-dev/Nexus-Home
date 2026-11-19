@@ -44,6 +44,9 @@ public class NexusHomeDbContext : DbContext
     public DbSet<OutboxEvent> OutboxEvents => Set<OutboxEvent>();
     public DbSet<TelemetryDedupLedger> TelemetryDedupLedger => Set<TelemetryDedupLedger>();
 
+    // Domain entities - Authentication
+    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -62,6 +65,7 @@ public class NexusHomeDbContext : DbContext
         modelBuilder.ApplyConfiguration(new DeviceCommandConfiguration());
         modelBuilder.ApplyConfiguration(new OutboxEventConfiguration());
         modelBuilder.ApplyConfiguration(new TelemetryDedupLedgerConfiguration());
+        modelBuilder.ApplyConfiguration(new RefreshTokenConfiguration());
 
         // Global query filters for soft delete
         modelBuilder.Entity<User>().HasQueryFilter(u => u.DeletedAt == null);
@@ -76,6 +80,9 @@ public class NexusHomeDbContext : DbContext
         modelBuilder.Entity<Membership>().HasQueryFilter(m => m.Home != null && m.Home.DeletedAt == null);
         modelBuilder.Entity<Permission>().HasQueryFilter(p => p.Home != null && p.Home.DeletedAt == null);
         modelBuilder.Entity<Settings>().HasQueryFilter(s => s.User != null && s.User.DeletedAt == null);
+
+        // RefreshToken: filter to valid tokens only (not revoked, not expired)
+        modelBuilder.Entity<RefreshToken>().HasQueryFilter(rt => rt.RevokedAt == null && rt.ExpiresAt > DateTimeOffset.UtcNow);
 
         // TimescaleDB hypertable setup - will be executed via migration
         // SELECT create_hypertable('device_telemetry', 'timestamp', chunk_time_interval => INTERVAL '1 day');
@@ -172,6 +179,12 @@ public class NexusHomeDbContext : DbContext
                 // TelemetryDedupLedger is immutable - no UpdatedAt
                 if (entry.State == EntityState.Added)
                     t.ReceivedAt = DateTime.UtcNow;
+            }
+            else if (entry.Entity is RefreshToken rt)
+            {
+                rt.UpdatedAt = DateTime.UtcNow;
+                if (entry.State == EntityState.Added)
+                    rt.CreatedAt = DateTime.UtcNow;
             }
         }
     }

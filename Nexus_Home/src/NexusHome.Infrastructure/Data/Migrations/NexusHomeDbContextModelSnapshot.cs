@@ -60,9 +60,6 @@ namespace NexusHome.Infrastructure.Data.Migrations
                     b.Property<DateTimeOffset?>("DeletedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<Guid?>("DeviceCommandId")
-                        .HasColumnType("uuid");
-
                     b.Property<Guid?>("DeviceId")
                         .HasColumnType("uuid")
                         .HasColumnName("device_id");
@@ -91,7 +88,7 @@ namespace NexusHome.Infrastructure.Data.Migrations
                     b.HasIndex("ActionType")
                         .HasDatabaseName("idx_ai_action_audit_action_type");
 
-                    b.HasIndex("DeviceCommandId");
+                    b.HasIndex("CommandId");
 
                     b.HasIndex("DeviceId")
                         .HasDatabaseName("idx_ai_action_audit_device_id");
@@ -215,9 +212,6 @@ namespace NexusHome.Infrastructure.Data.Migrations
                         .IsUnique()
                         .HasDatabaseName("uk_devices_external_id");
 
-                    b.HasIndex("HomeId")
-                        .HasDatabaseName("idx_devices_home_id");
-
                     b.HasIndex("RemovedAt")
                         .HasDatabaseName("idx_devices_removed_at")
                         .HasFilter("removed_at IS NOT NULL");
@@ -338,17 +332,11 @@ namespace NexusHome.Infrastructure.Data.Migrations
                     b.HasIndex("CorrelationId")
                         .HasDatabaseName("idx_device_commands_correlation_id");
 
-                    b.HasIndex("DeviceId")
-                        .HasDatabaseName("idx_device_commands_device_id");
-
                     b.HasIndex("ExpiresAt")
                         .HasDatabaseName("idx_device_commands_expires_at");
 
                     b.HasIndex("HomeId")
                         .HasDatabaseName("idx_device_commands_home_id");
-
-                    b.HasIndex("RequestedByUserId")
-                        .HasDatabaseName("idx_device_commands_requested_by_user_id");
 
                     b.HasIndex("Status")
                         .HasDatabaseName("idx_device_commands_status");
@@ -552,9 +540,6 @@ namespace NexusHome.Infrastructure.Data.Migrations
                     b.HasIndex("ExpiresAt")
                         .HasDatabaseName("idx_invitations_expires_at");
 
-                    b.HasIndex("HomeId")
-                        .HasDatabaseName("idx_invitations_home_id");
-
                     b.HasIndex("InvitedByUserId");
 
                     b.HasIndex("InviteeEmail")
@@ -622,9 +607,6 @@ namespace NexusHome.Infrastructure.Data.Migrations
                         .IsUnique()
                         .HasDatabaseName("idx_memberships_home_id")
                         .HasFilter("\"Role\" = 'owner' AND \"IsActive\" = true");
-
-                    b.HasIndex("UserId")
-                        .HasDatabaseName("idx_memberships_user_id");
 
                     b.HasIndex("UserId", "HomeId")
                         .HasDatabaseName("idx_memberships_user_home_active")
@@ -697,9 +679,6 @@ namespace NexusHome.Infrastructure.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("GranteeMembershipId")
-                        .HasDatabaseName("idx_permissions_grantee_membership_id");
-
                     b.HasIndex("GrantorMembershipId")
                         .HasDatabaseName("idx_permissions_grantor_membership_id");
 
@@ -716,6 +695,76 @@ namespace NexusHome.Infrastructure.Data.Migrations
                         .HasDatabaseName("uk_permissions_grantee_perm_target_effect");
 
                     b.ToTable("permissions", (string)null);
+                });
+
+            modelBuilder.Entity("NexusHome.Domain.Entities.RefreshToken", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
+                    b.Property<string>("ReplacedByTokenHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("replaced_by_token_hash");
+
+                    b.Property<string>("RevocationReason")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("revocation_reason");
+
+                    b.Property<DateTimeOffset?>("RevokedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("revoked_at");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("token_hash");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ExpiresAt")
+                        .HasDatabaseName("idx_refresh_tokens_expires_at")
+                        .HasFilter("revoked_at IS NULL");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique()
+                        .HasDatabaseName("uk_refresh_tokens_token_hash");
+
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("idx_refresh_tokens_user_id");
+
+                    b.HasIndex("UserId", "TokenHash")
+                        .HasDatabaseName("idx_refresh_tokens_user_hash_active")
+                        .HasFilter("revoked_at IS NULL");
+
+                    b.ToTable("refresh_tokens", (string)null);
                 });
 
             modelBuilder.Entity("NexusHome.Domain.Entities.Room", b =>
@@ -750,9 +799,6 @@ namespace NexusHome.Infrastructure.Data.Migrations
                         .HasDefaultValueSql("now()");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("HomeId")
-                        .HasDatabaseName("idx_rooms_home_id");
 
                     b.HasIndex("HomeId", "Id")
                         .IsUnique()
@@ -1001,9 +1047,10 @@ namespace NexusHome.Infrastructure.Data.Migrations
 
             modelBuilder.Entity("NexusHome.Domain.Entities.AIActionAudit", b =>
                 {
-                    b.HasOne("NexusHome.Domain.Entities.DeviceCommand", null)
+                    b.HasOne("NexusHome.Domain.Entities.DeviceCommand", "DeviceCommand")
                         .WithMany("AIActionAudits")
-                        .HasForeignKey("DeviceCommandId");
+                        .HasForeignKey("CommandId")
+                        .OnDelete(DeleteBehavior.SetNull);
 
                     b.HasOne("NexusHome.Domain.Entities.Device", "Device")
                         .WithMany()
@@ -1020,6 +1067,8 @@ namespace NexusHome.Infrastructure.Data.Migrations
                         .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("Device");
+
+                    b.Navigation("DeviceCommand");
 
                     b.Navigation("User");
                 });
@@ -1142,6 +1191,17 @@ namespace NexusHome.Infrastructure.Data.Migrations
                     b.Navigation("Home");
                 });
 
+            modelBuilder.Entity("NexusHome.Domain.Entities.RefreshToken", b =>
+                {
+                    b.HasOne("NexusHome.Domain.Entities.User", "User")
+                        .WithMany("RefreshTokens")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("NexusHome.Domain.Entities.Room", b =>
                 {
                     b.HasOne("NexusHome.Domain.Entities.Home", "Home")
@@ -1210,6 +1270,8 @@ namespace NexusHome.Infrastructure.Data.Migrations
                     b.Navigation("DeviceCommands");
 
                     b.Navigation("Memberships");
+
+                    b.Navigation("RefreshTokens");
 
                     b.Navigation("SentInvitations");
 

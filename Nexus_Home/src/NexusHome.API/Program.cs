@@ -1,8 +1,17 @@
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.OpenApi;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi;
+using NexusHome.Api.Endpoints.Authentication;
+using NexusHome.Application;
 using NexusHome.Infrastructure;
+using NexusHome.Infrastructure.Authentication;
 using NexusHome.Infrastructure.Data;
+using System.Text;
 
 namespace NexusHome.Api;
 
@@ -17,8 +26,63 @@ public class Program
         // Configuration
         builder.Configuration.AddEnvironmentVariables(prefix: "CONNECTIONSTRINGS__");
 
-        // Add Infrastructure services (DbContext, etc.)
+        // Add Application services (MediatR, FluentValidation, Pipeline Behaviors)
+        builder.Services.AddApplication();
+
+        // Add Infrastructure services (DbContext, Repositories, Auth Services)
         builder.Services.AddInfrastructure(builder.Configuration);
+
+        // Configure JWT Authentication
+        var jwtSettings = builder.Configuration.GetSection("Jwt").Get<JwtSettings>()
+            ?? throw new InvalidOperationException("JWT settings not configured");
+
+        builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+            .AddJwtBearer(options =>
+            {
+                options.TokenValidationParameters = new TokenValidationParameters
+                {
+                    ValidateIssuer = true,
+                    ValidateAudience = true,
+                    ValidateLifetime = true,
+                    ValidateIssuerSigningKey = true,
+                    ValidIssuer = jwtSettings.Issuer,
+                    ValidAudience = jwtSettings.Audience,
+                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.SigningKey)),
+                    ClockSkew = TimeSpan.Zero
+                };
+
+                // Don't include error details in the response
+                options.IncludeErrorDetails = false;
+
+                options.Events = new JwtBearerEvents
+                {
+                    OnAuthenticationFailed = context =>
+                    {
+                        // Don't log token details
+                        context.NoResult();
+                        context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                        context.Response.ContentType = "application/json";
+                        return context.Response.WriteAsJsonAsync(new
+                        {
+                            error = "Authentication failed",
+                            message = "Invalid or expired token"
+                        });
+                    },
+                    OnChallenge = context =>
+                    {
+                        context.HandleResponse();
+                        context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                        context.Response.ContentType = "application/json";
+                        return context.Response.WriteAsJsonAsync(new
+                        {
+                            error = "Unauthorized",
+                            message = "Authentication required"
+                        });
+                    }
+                };
+            });
+
+        builder.Services.AddAuthorization();
 
         // Health Checks
         builder.Services.AddHealthChecks()
@@ -31,14 +95,44 @@ public class Program
                 name: "redis",
                 tags: new[] { "cache", "ready" });
 
-        // OpenAPI
-        builder.Services.AddOpenApi();
+        // OpenAPI (built-in for document generation)
+        builder.Services.AddOpenApi(options =>
+        {
+            options.AddDocumentTransformer((document, context, cancellationToken) =>
+            {
+                document.Info.Title = "Nexus Home API";
+                document.Info.Version = "v1";
+                document.Info.Description = "Nexus Home Smart Home API";
 
-        // Controllers/Minimal APIs
-        builder.Services.AddControllers();
+                // Add JWT Bearer security scheme
+                document.Components ??= new OpenApiComponents();
+                document.Components.SecuritySchemes ??= new Dictionary<string, IOpenApiSecurityScheme>();
+                document.Components.SecuritySchemes["Bearer"] = new OpenApiSecurityScheme
+                {
+                    Type = SecuritySchemeType.Http,
+                    Scheme = "bearer",
+                    BearerFormat = "JWT",
+                    Description = "Enter JWT Bearer token (e.g., 'eyJhbGciOiJIUzI1NiIs...')"
+                };
 
-        // Global exception handling
-        builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+                // Add global security requirement to all operations
+                var securityRequirement = new OpenApiSecurityRequirement();
+                securityRequirement.Add(new OpenApiSecuritySchemeReference("Bearer", document, null), new List<string>());
+
+                foreach (var path in document.Paths.Values)
+                {
+                    foreach (var operation in path.Operations.Values)
+                    {
+                        operation.Security ??= new List<OpenApiSecurityRequirement>();
+                        operation.Security.Add(securityRequirement);
+                    }
+                }
+
+                return Task.CompletedTask;
+            });
+        });
+
+        // ProblemDetails for consistent error responses
         builder.Services.AddProblemDetails();
 
         // Logging
@@ -52,6 +146,13 @@ public class Program
         if (app.Environment.IsDevelopment())
         {
             app.MapOpenApi();
+            app.UseSwaggerUI(options =>
+            {
+                options.SwaggerEndpoint("/openapi/v1.json", "Nexus Home API v1");
+                options.RoutePrefix = "swagger";
+                options.DocumentTitle = "Nexus Home API";
+                options.DefaultModelsExpandDepth(-1); // Hide models section by default
+            });
         }
 
         // Global exception handler
@@ -68,12 +169,14 @@ public class Program
             Predicate = check => check.Tags.Contains("ready"), // Readiness: check dependencies
         });
 
-        // API routes
-        app.MapControllers();
+        // Authentication & Authorization
+        app.UseAuthentication();
+        app.UseAuthorization();
+
+        // API Endpoints
+        app.MapAuthenticationEndpoints();
 
         app.UseHttpsRedirection();
-
-        app.UseAuthorization();
 
         // Ensure database is created (for development)
         if (app.Environment.IsDevelopment())
@@ -87,34 +190,12 @@ public class Program
     }
 }
 
-// Global exception handler
-internal sealed class GlobalExceptionHandler : IExceptionHandler
+// JWT Settings for configuration binding
+public sealed class JwtSettings
 {
-    private readonly ILogger<GlobalExceptionHandler> _logger;
-
-    public GlobalExceptionHandler(ILogger<GlobalExceptionHandler> logger)
-    {
-        _logger = logger;
-    }
-
-    public async ValueTask<bool> TryHandleAsync(
-        HttpContext httpContext,
-        Exception exception,
-        CancellationToken cancellationToken)
-    {
-        _logger.LogError(exception, "Unhandled exception occurred: {Message}", exception.Message);
-
-        var problemDetails = new Microsoft.AspNetCore.Mvc.ProblemDetails
-        {
-            Status = StatusCodes.Status500InternalServerError,
-            Title = "An unexpected error occurred",
-            Detail = exception.ToString(),
-            Instance = httpContext.Request.Path
-        };
-
-        httpContext.Response.StatusCode = StatusCodes.Status500InternalServerError;
-        await httpContext.Response.WriteAsJsonAsync(problemDetails, cancellationToken);
-
-        return true;
-    }
+    public string Issuer { get; init; } = string.Empty;
+    public string Audience { get; init; } = string.Empty;
+    public int AccessTokenExpirationMinutes { get; init; } = 15;
+    public int RefreshTokenExpirationDays { get; init; } = 30;
+    public string SigningKey { get; init; } = string.Empty;
 }

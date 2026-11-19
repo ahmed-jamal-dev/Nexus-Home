@@ -3,7 +3,11 @@ namespace NexusHome.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
+using NexusHome.Application.Interfaces;
+using NexusHome.Infrastructure.Authentication;
 using NexusHome.Infrastructure.Data;
+using NexusHome.Infrastructure.Repositories;
 
 /// <summary>
 /// Extension methods for registering infrastructure services.
@@ -35,6 +39,18 @@ public static class DependencyInjection
                 options.EnableSensitiveDataLogging();
             }
         });
+
+        // Register JWT settings
+        services.Configure<JwtSettings>(options => configuration.GetSection("Jwt").Bind(options));
+        services.AddSingleton(sp => sp.GetRequiredService<IOptions<JwtSettings>>().Value);
+
+        // Register authentication services
+        services.AddScoped<IPasswordHasher, PasswordHasher>();
+        services.AddScoped<ITokenService, TokenService>();
+
+        // Register repositories
+        services.AddScoped<IUserRepository, UserRepository>();
+        services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
 
         return services;
     }
