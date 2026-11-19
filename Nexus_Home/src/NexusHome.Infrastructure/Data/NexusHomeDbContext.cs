@@ -1,6 +1,8 @@
 namespace NexusHome.Infrastructure.Data;
 
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.Extensions.Logging;
 using NexusHome.Domain.Entities;
 using NexusHome.Infrastructure.Configurations;
 using NexusHome.Infrastructure.Entities;
@@ -14,6 +16,15 @@ public class NexusHomeDbContext : DbContext
     public NexusHomeDbContext(DbContextOptions<NexusHomeDbContext> options)
         : base(options)
     {
+    }
+
+    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+    {
+        base.OnConfiguring(optionsBuilder);
+        // Suppress warning 10625 about DeviceId1/DeviceId2 shadow properties created by convention
+        // when AIActionAudit has both DeviceId (direct FK) and CommandId (FK to DeviceCommand which has Device navigation)
+        // This is a known EF Core behavior - the shadow property is not persisted to database
+        optionsBuilder.ConfigureWarnings(w => w.Ignore(new EventId(10625, "ShadowPropertyCreatedForRelationship")));
     }
 
     // Domain entities
@@ -57,6 +68,14 @@ public class NexusHomeDbContext : DbContext
         modelBuilder.Entity<Home>().HasQueryFilter(h => h.DeletedAt == null);
         modelBuilder.Entity<Room>().HasQueryFilter(r => r.DeletedAt == null);
         modelBuilder.Entity<Device>().HasQueryFilter(d => d.RemovedAt == null);
+
+        // Matching query filters for dependent entities to avoid EF Core warnings
+        modelBuilder.Entity<DeviceTelemetry>().HasQueryFilter(t => t.Device != null && t.Device.RemovedAt == null);
+        modelBuilder.Entity<DeviceCommand>().HasQueryFilter(c => c.Device != null && c.Device.RemovedAt == null);
+        modelBuilder.Entity<Invitation>().HasQueryFilter(i => i.Home != null && i.Home.DeletedAt == null);
+        modelBuilder.Entity<Membership>().HasQueryFilter(m => m.Home != null && m.Home.DeletedAt == null);
+        modelBuilder.Entity<Permission>().HasQueryFilter(p => p.Home != null && p.Home.DeletedAt == null);
+        modelBuilder.Entity<Settings>().HasQueryFilter(s => s.User != null && s.User.DeletedAt == null);
 
         // TimescaleDB hypertable setup - will be executed via migration
         // SELECT create_hypertable('device_telemetry', 'timestamp', chunk_time_interval => INTERVAL '1 day');

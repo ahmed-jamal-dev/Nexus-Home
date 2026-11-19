@@ -100,9 +100,6 @@ public class PermissionConfiguration : IEntityTypeConfiguration<Permission>
             .HasDatabaseName("uk_permissions_grantee_perm_target_effect");
 
         // Indexes
-        builder.HasIndex(p => p.GranteeMembershipId)
-            .HasDatabaseName("idx_permissions_grantee_membership_id");
-
         builder.HasIndex(p => p.GrantorMembershipId)
             .HasDatabaseName("idx_permissions_grantor_membership_id");
 

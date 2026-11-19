@@ -71,6 +71,12 @@ public class AIActionAuditConfiguration : IEntityTypeConfiguration<AIActionAudit
             .HasForeignKey(a => a.DeviceId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        // FK to device commands - SET NULL on delete
+        // Configured in NexusHomeDbContext.OnModelCreating with PropertyAccessMode.Property
+        // to prevent DeviceId1 shadow property inference from DeviceCommand.Device navigation
+        // Warning 10625 is suppressed in OnConfiguring as this is a known EF Core convention behavior
+        // The shadow property is not persisted to the database
+
         // Indexes
         builder.HasIndex(a => a.UserId)
             .HasDatabaseName("idx_ai_action_audit_user_id");

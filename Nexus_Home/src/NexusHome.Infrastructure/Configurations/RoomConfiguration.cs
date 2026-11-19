@@ -53,9 +53,5 @@ public class RoomConfiguration : IEntityTypeConfiguration<Room>
             .IsUnique()
             .HasFilter("deleted_at IS NULL")
             .HasDatabaseName("uk_rooms_home_name");
-
-        // Index
-        builder.HasIndex(r => r.HomeId)
-            .HasDatabaseName("idx_rooms_home_id");
     }
 }

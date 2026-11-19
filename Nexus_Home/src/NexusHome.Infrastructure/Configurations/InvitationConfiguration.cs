@@ -81,9 +81,6 @@ public class InvitationConfiguration : IEntityTypeConfiguration<Invitation>
             .HasDatabaseName("uk_invitations_home_email_pending");
 
         // Indexes
-        builder.HasIndex(i => i.HomeId)
-            .HasDatabaseName("idx_invitations_home_id");
-
         builder.HasIndex(i => i.InviteeEmail)
             .HasDatabaseName("idx_invitations_invitee_email");
 

@@ -66,9 +66,6 @@ public class MembershipConfiguration : IEntityTypeConfiguration<Membership>
             .HasDatabaseName("uk_memberships_one_owner_per_home");
 
         // Indexes
-        builder.HasIndex(m => m.UserId)
-            .HasDatabaseName("idx_memberships_user_id");
-
         builder.HasIndex(m => m.HomeId)
             .HasDatabaseName("idx_memberships_home_id");
 

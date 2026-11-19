@@ -62,6 +62,11 @@ public class AIActionAudit : Entity
     /// </summary>
     public Device? Device { get; private set; }
 
+    /// <summary>
+    /// Navigation to device command.
+    /// </summary>
+    public DeviceCommand? DeviceCommand { get; private set; }
+
     protected AIActionAudit() { }
 
     public AIActionAudit(Guid id, string actionType, AIActionOutcome outcome,

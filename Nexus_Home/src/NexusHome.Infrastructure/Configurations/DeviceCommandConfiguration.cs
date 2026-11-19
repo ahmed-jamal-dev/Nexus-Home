@@ -105,16 +105,22 @@ public class DeviceCommandConfiguration : IEntityTypeConfiguration<DeviceCommand
             .OnDelete(DeleteBehavior.Restrict);
 
         // FK to devices - RESTRICT on delete
-        builder.HasOne(dc => dc.Device)
-            .WithMany(d => d.Commands)
-            .HasForeignKey(dc => dc.DeviceId)
-            .OnDelete(DeleteBehavior.Restrict);
+        // Configured in DeviceConfiguration (Device -> Commands) to prevent inference chain
+        // that creates DeviceId1 shadow property on AIActionAudit
 
         // FK to users (requester) - CASCADE on delete per D-18
         builder.HasOne(dc => dc.RequestedByUser)
             .WithMany(u => u.DeviceCommands)
             .HasForeignKey(dc => dc.RequestedByUserId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        // Explicitly configure AIActionAudits collection to prevent convention discovery
+        // from creating DeviceCommandId shadow property on AIActionAudit
+        builder.HasMany(dc => dc.AIActionAudits)
+            .WithOne(a => a.DeviceCommand)
+            .HasForeignKey(a => a.CommandId)
+            .OnDelete(DeleteBehavior.SetNull)
+            .IsRequired(false);
 
         // Unique command_id per device (for device deduplication)
         builder.HasIndex(dc => new { dc.DeviceId, dc.CommandId })
@@ -130,12 +136,6 @@ public class DeviceCommandConfiguration : IEntityTypeConfiguration<DeviceCommand
         // Indexes
         builder.HasIndex(dc => dc.HomeId)
             .HasDatabaseName("idx_device_commands_home_id");
-
-        builder.HasIndex(dc => dc.DeviceId)
-            .HasDatabaseName("idx_device_commands_device_id");
-
-        builder.HasIndex(dc => dc.RequestedByUserId)
-            .HasDatabaseName("idx_device_commands_requested_by_user_id");
 
         builder.HasIndex(dc => dc.Status)
             .HasDatabaseName("idx_device_commands_status");

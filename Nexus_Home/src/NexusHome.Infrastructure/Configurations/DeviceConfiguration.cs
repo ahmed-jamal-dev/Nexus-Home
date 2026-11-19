@@ -60,7 +60,8 @@ public class DeviceConfiguration : IEntityTypeConfiguration<Device>
             .IsRequired()
             .HasConversion<string>()
             .HasMaxLength(20)
-            .HasDefaultValue(ConnectionStatus.Unknown);
+            .HasDefaultValue(ConnectionStatus.Unknown)
+            .HasSentinel(ConnectionStatus.Online);
 
         builder.Property(d => d.LastSeenAt)
             .HasColumnName("last_seen_at");
@@ -100,6 +101,13 @@ public class DeviceConfiguration : IEntityTypeConfiguration<Device>
             .HasForeignKey(d => d.RoomId)
             .OnDelete(DeleteBehavior.SetNull);
 
+        // Explicitly configure Device -> Commands to prevent convention inference
+        // from DeviceCommand.Device navigation, which would create DeviceId1 shadow property on AIActionAudit
+        builder.HasMany(d => d.Commands)
+            .WithOne(dc => dc.Device)
+            .HasForeignKey(dc => dc.DeviceId)
+            .OnDelete(DeleteBehavior.Restrict);
+
         // Globally unique external_id
         builder.HasIndex(d => d.ExternalId)
             .IsUnique()
@@ -117,9 +125,6 @@ public class DeviceConfiguration : IEntityTypeConfiguration<Device>
         // This will be added via raw SQL in migration
 
         // Indexes
-        builder.HasIndex(d => d.HomeId)
-            .HasDatabaseName("idx_devices_home_id");
-
         builder.HasIndex(d => d.RoomId)
             .HasDatabaseName("idx_devices_room_id");
 
