@@ -508,7 +508,6 @@ namespace NexusHome.Infrastructure.Data.Migrations
                         .HasColumnName("invited_by_user_id");
 
                     b.Property<string>("InviteeEmail")
-                        .IsRequired()
                         .HasMaxLength(255)
                         .HasColumnType("character varying(255)")
                         .HasColumnName("invitee_email");
@@ -540,6 +539,10 @@ namespace NexusHome.Infrastructure.Data.Migrations
                     b.HasIndex("ExpiresAt")
                         .HasDatabaseName("idx_invitations_expires_at");
 
+                    b.HasIndex("HomeId")
+                        .HasDatabaseName("idx_invitations_home_pending_claim")
+                        .HasFilter("is_accepted = false AND \"Role\" = 'owner' AND invitee_email IS NULL AND \"DeletedAt\" IS NULL");
+
                     b.HasIndex("InvitedByUserId");
 
                     b.HasIndex("InviteeEmail")
@@ -547,14 +550,18 @@ namespace NexusHome.Infrastructure.Data.Migrations
 
                     b.HasIndex("Token")
                         .IsUnique()
-                        .HasDatabaseName("uk_invitations_token");
+                        .HasDatabaseName("uk_invitations_token")
+                        .HasFilter("\"Token\" <> ''");
 
                     b.HasIndex("HomeId", "InviteeEmail")
                         .IsUnique()
                         .HasDatabaseName("uk_invitations_home_email_pending")
-                        .HasFilter("is_accepted = false");
+                        .HasFilter("is_accepted = false AND invitee_email IS NOT NULL");
 
-                    b.ToTable("invitations", (string)null);
+                    b.ToTable("invitations", null, t =>
+                        {
+                            t.HasCheckConstraint("chk_invitations_claim_credential", "(\"Role\" = 'Owner' AND invitee_email IS NULL) OR (invitee_email IS NOT NULL)");
+                        });
                 });
 
             modelBuilder.Entity("NexusHome.Domain.Entities.Membership", b =>

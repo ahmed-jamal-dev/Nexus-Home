@@ -19,6 +19,11 @@ public interface ITokenService
     (string PlainToken, string TokenHash) GenerateRefreshToken();
 
     /// <summary>
+    /// Generates a claim credential and returns the plaintext credential and its hash.
+    /// </summary>
+    (string PlainCredential, string CredentialHash) GenerateClaimCredential();
+
+    /// <summary>
     /// Validates a refresh token hash and returns the associated user if valid.
     /// </summary>
     Task<Result<User>> ValidateRefreshTokenAsync(string tokenHash, CancellationToken cancellationToken = default);
@@ -32,4 +37,9 @@ public interface ITokenService
     /// Gets the refresh token expiration time in days.
     /// </summary>
     int RefreshTokenExpirationDays { get; }
+
+    /// <summary>
+    /// Gets the claim credential expiration time in days.
+    /// </summary>
+    int ClaimCredentialExpirationDays { get; }
 }

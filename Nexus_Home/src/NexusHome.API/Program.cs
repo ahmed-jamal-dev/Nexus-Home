@@ -3,16 +3,19 @@ using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OpenApi;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using NexusHome.Api.Endpoints.Authentication;
+using NexusHome.Api.Endpoints.Home;
 using NexusHome.Application;
 using NexusHome.Infrastructure;
 using NexusHome.Infrastructure.Authentication;
 using NexusHome.Infrastructure.Data;
 using System.Text;
+using System.Threading.RateLimiting;
 
 namespace NexusHome.Api;
 
@@ -37,6 +40,12 @@ public class Program
         var jwtSettings = builder.Configuration.GetSection("Jwt").Get<JwtSettings>()
             ?? throw new InvalidOperationException("JWT settings not configured");
 
+        // DIAGNOSTIC: Log JWT settings
+        var loggerFactory = LoggerFactory.Create(logging => logging.AddConsole());
+        var diagLogger = loggerFactory.CreateLogger("JwtDiagnostic");
+        diagLogger.LogInformation("JWT Settings loaded: Issuer={Issuer}, Audience={Audience}, SigningKeyLength={KeyLength}",
+            jwtSettings.Issuer, jwtSettings.Audience, jwtSettings.SigningKey?.Length ?? 0);
+
         builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             .AddJwtBearer(options =>
             {
@@ -57,8 +66,25 @@ public class Program
 
                 options.Events = new JwtBearerEvents
                 {
+                    OnMessageReceived = context =>
+                    {
+                        // DIAGNOSTIC: Log the raw Authorization header and extracted token
+                        var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
+                        var authHeader = context.Request.Headers["Authorization"].FirstOrDefault();
+                        logger.LogInformation("OnMessageReceived: Authorization header = {AuthHeader}", authHeader);
+                        if (!string.IsNullOrEmpty(authHeader) && authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var token = authHeader.Substring("Bearer ".Length).Trim();
+                            logger.LogInformation("OnMessageReceived: Extracted token (first 50 chars) = {Token}", token.Substring(0, Math.Min(50, token.Length)));
+                        }
+                        return Task.CompletedTask;
+                    },
                     OnAuthenticationFailed = context =>
                     {
+                        // Log the actual exception for debugging
+                        var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
+                        logger.LogError(context.Exception, "JWT Authentication failed");
+
                         // Don't log token details
                         context.NoResult();
                         context.Response.StatusCode = StatusCodes.Status401Unauthorized;
@@ -66,7 +92,8 @@ public class Program
                         return context.Response.WriteAsJsonAsync(new
                         {
                             error = "Authentication failed",
-                            message = "Invalid or expired token"
+                            message = "Invalid or expired token",
+                            details = context.Exception?.Message
                         });
                     },
                     OnChallenge = context =>
@@ -83,7 +110,39 @@ public class Program
                 };
             });
 
-        builder.Services.AddAuthorization();
+        // Authorization policies
+        builder.Services.AddAuthorization(options =>
+        {
+            // HomeProvisioning policy: requires scope:home.provision or role:provisioner claim
+            options.AddPolicy("HomeProvisioning", policy =>
+                policy.RequireAssertion(context =>
+                    context.User.HasClaim(c => c.Type == "scope" && c.Value == "home.provision") ||
+                    context.User.HasClaim(c => c.Type == System.Security.Claims.ClaimTypes.Role && c.Value == "provisioner")));
+        });
+
+        // Rate limiting
+        builder.Services.AddRateLimiter(options =>
+        {
+            // Claim endpoint: 10 requests per minute per IP + 5 per user
+            options.AddFixedWindowLimiter("ClaimEndpoint", limiterOptions =>
+            {
+                limiterOptions.PermitLimit = 10;
+                limiterOptions.Window = TimeSpan.FromMinutes(1);
+                limiterOptions.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+                limiterOptions.QueueLimit = 0;
+            });
+
+            // Provisioning endpoints: 5 requests per minute per client
+            options.AddFixedWindowLimiter("ProvisioningEndpoint", limiterOptions =>
+            {
+                limiterOptions.PermitLimit = 5;
+                limiterOptions.Window = TimeSpan.FromMinutes(1);
+                limiterOptions.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+                limiterOptions.QueueLimit = 0;
+            });
+
+            options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+        });
 
         // Health Checks
         builder.Services.AddHealthChecks()
@@ -167,6 +226,9 @@ public class Program
             });
         }
 
+        // Rate limiting middleware
+        app.UseRateLimiter();
+
         // Global exception handler
         app.UseExceptionHandler();
 
@@ -187,6 +249,7 @@ public class Program
 
         // API Endpoints
         app.MapAuthenticationEndpoints();
+        app.MapHomeEndpoints();
 
         app.UseHttpsRedirection();
 

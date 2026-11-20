@@ -45,6 +45,10 @@ public static class DependencyInjection
         services.Configure<JwtSettings>(options => configuration.GetSection("Jwt").Bind(options));
         services.AddSingleton(sp => sp.GetRequiredService<IOptions<JwtSettings>>().Value);
 
+        // Register claim credential settings
+        services.Configure<ClaimCredentialSettings>(options => configuration.GetSection("ClaimCredential").Bind(options));
+        services.AddSingleton(sp => sp.GetRequiredService<IOptions<ClaimCredentialSettings>>().Value);
+
         // Register authentication services
         services.AddScoped<IPasswordHasher, PasswordHasher>();
         services.AddScoped<ITokenService, TokenService>();
@@ -52,6 +56,9 @@ public static class DependencyInjection
         // Register repositories
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
+        services.AddScoped<IHomeRepository, HomeRepository>();
+        services.AddScoped<IClaimCredentialRepository, ClaimCredentialRepository>();
+        services.AddScoped<IMembershipRepository, MembershipRepository>();
 
         return services;
     }

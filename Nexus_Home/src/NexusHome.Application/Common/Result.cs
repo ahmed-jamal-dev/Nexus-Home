@@ -171,5 +171,23 @@ public static class Errors
         public static readonly Error RefreshTokenRequired = new("VALIDATION.REFRESH_TOKEN_REQUIRED", "Refresh token is required");
         public static readonly Error ConfirmPasswordRequired = new("VALIDATION.CONFIRM_PASSWORD_REQUIRED", "Password confirmation is required");
         public static readonly Error PasswordsDoNotMatch = new("VALIDATION.PASSWORDS_DO_NOT_MATCH", "Passwords do not match");
+        public static readonly Error ClaimCredentialRequired = new("VALIDATION.CLAIM_CREDENTIAL_REQUIRED", "Claim credential is required");
+        public static readonly Error ClaimCredentialInvalid = new("VALIDATION.CLAIM_CREDENTIAL_INVALID", "Invalid claim credential format");
+    }
+
+    public static class Home
+    {
+        public static readonly Error HomeNotFound = new("HOME.NOT_FOUND", "Home not found");
+        public static readonly Error HomeDeleted = new("HOME.DELETED", "Home has been deleted");
+        public static readonly Error HomeAlreadyClaimed = new("HOME.ALREADY_CLAIMED", "Home already has an owner");
+        public static readonly Error UserAlreadyOwnsHome = new("HOME.USER_ALREADY_OWNS", "User already owns this home");
+
+        public static readonly Error ClaimCredentialNotFound = new("HOME.CLAIM_CREDENTIAL_NOT_FOUND", "Claim credential not found");
+        public static readonly Error ClaimCredentialExpired = new("HOME.CLAIM_CREDENTIAL_EXPIRED", "Claim credential has expired");
+        public static readonly Error ClaimCredentialAlreadyUsed = new("HOME.CLAIM_CREDENTIAL_ALREADY_USED", "Claim credential has already been used");
+        public static readonly Error ClaimCredentialRevoked = new("HOME.CLAIM_CREDENTIAL_REVOKED", "Claim credential has been revoked");
+        public static readonly Error ClaimCredentialExists = new("HOME.CLAIM_CREDENTIAL_EXISTS", "A valid claim credential already exists for this home");
+
+        public static readonly Error ProvisioningForbidden = new("HOME.PROVISIONING_FORBIDDEN", "Provisioning requires elevated privileges");
     }
 }
