@@ -4,6 +4,8 @@ using MediatR;
 using NexusHome.Application.Common;
 using NexusHome.Application.Interfaces;
 using NexusHome.Domain.Entities;
+using NexusHome.Domain.Events;
+using System.Text.Json;
 using static NexusHome.Application.Common.Errors;
 using DomainHome = NexusHome.Domain.Entities.Home;
 
@@ -14,13 +16,16 @@ public sealed class RevokeClaimCredentialHandler : IRequestHandler<RevokeClaimCr
 {
     private readonly IHomeRepository _homeRepository;
     private readonly IClaimCredentialRepository _claimCredentialRepository;
+    private readonly IOutboxEventRepository _outboxEventRepository;
 
     public RevokeClaimCredentialHandler(
         IHomeRepository homeRepository,
-        IClaimCredentialRepository claimCredentialRepository)
+        IClaimCredentialRepository claimCredentialRepository,
+        IOutboxEventRepository outboxEventRepository)
     {
         _homeRepository = homeRepository;
         _claimCredentialRepository = claimCredentialRepository;
+        _outboxEventRepository = outboxEventRepository;
     }
 
     public async Task<Result> Handle(RevokeClaimCredentialCommand request, CancellationToken cancellationToken)
@@ -38,9 +43,27 @@ public sealed class RevokeClaimCredentialHandler : IRequestHandler<RevokeClaimCr
             return Errors.Home.ClaimCredentialNotFound;
         }
 
+        var credentialId = credential.Id;
+
         // Revoke the credential
         credential.Revoke();
         await _claimCredentialRepository.UpdateAsync(credential, cancellationToken);
+
+        // Publish ClaimCredentialRevoked outbox event
+        var credentialRevokedEvent = new OutboxEvent
+        {
+            Id = Guid.NewGuid(),
+            EventType = "claim.credential.revoked",
+            Payload = JsonSerializer.Serialize(new
+            {
+                homeId = request.HomeId,
+                credentialId = credentialId,
+                revokedAt = DateTimeOffset.UtcNow
+            }),
+            CorrelationId = request.HomeId.ToString(),
+            CreatedAt = DateTimeOffset.UtcNow
+        };
+        await _outboxEventRepository.AddAsync(credentialRevokedEvent, cancellationToken);
 
         return Result.Success();
     }

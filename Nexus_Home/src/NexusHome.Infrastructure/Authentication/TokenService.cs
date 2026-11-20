@@ -44,10 +44,6 @@ public sealed class TokenService : ITokenService
             new Claim("email_verified", user.EmailVerified.ToString().ToLowerInvariant()),
         };
 
-        // TEMPORARY: Add home.provision scope for testing provisioning endpoints
-        // In production, this would be based on user roles/permissions
-        claims.Add(new Claim("scope", "home.provision"));
-
         var tokenDescriptor = new SecurityTokenDescriptor
         {
             Issuer = _jwtSettings.Issuer,

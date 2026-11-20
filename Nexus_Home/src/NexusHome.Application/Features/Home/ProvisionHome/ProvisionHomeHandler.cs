@@ -4,6 +4,8 @@ using MediatR;
 using NexusHome.Application.Common;
 using NexusHome.Application.Interfaces;
 using NexusHome.Domain.Entities;
+using NexusHome.Domain.Events;
+using System.Text.Json;
 using static NexusHome.Application.Common.Errors;
 using DomainHome = NexusHome.Domain.Entities.Home;
 
@@ -13,10 +15,14 @@ using DomainHome = NexusHome.Domain.Entities.Home;
 public sealed class ProvisionHomeHandler : IRequestHandler<ProvisionHomeCommand, Result<ProvisionHomeResponse>>
 {
     private readonly IHomeRepository _homeRepository;
+    private readonly IOutboxEventRepository _outboxEventRepository;
 
-    public ProvisionHomeHandler(IHomeRepository homeRepository)
+    public ProvisionHomeHandler(
+        IHomeRepository homeRepository,
+        IOutboxEventRepository outboxEventRepository)
     {
         _homeRepository = homeRepository;
+        _outboxEventRepository = outboxEventRepository;
     }
 
     public async Task<Result<ProvisionHomeResponse>> Handle(ProvisionHomeCommand request, CancellationToken cancellationToken)
@@ -37,6 +43,28 @@ public sealed class ProvisionHomeHandler : IRequestHandler<ProvisionHomeCommand,
                 request.Timezone?.Trim());
 
         await _homeRepository.AddAsync(homeEntity, cancellationToken);
+
+        // Publish HomeProvisioned outbox event
+        var homeProvisionedEvent = new OutboxEvent
+        {
+            Id = Guid.NewGuid(),
+            EventType = "home.provisioned",
+            Payload = JsonSerializer.Serialize(new
+            {
+                homeId = homeEntity.Id,
+                name = homeEntity.Name,
+                timezone = homeEntity.Timezone,
+                addressLine1 = homeEntity.AddressLine1,
+                addressLine2 = homeEntity.AddressLine2,
+                city = homeEntity.City,
+                stateProvince = homeEntity.StateProvince,
+                postalCode = homeEntity.PostalCode,
+                provisionedAt = homeEntity.CreatedAt
+            }),
+            CorrelationId = homeEntity.Id.ToString(),
+            CreatedAt = DateTimeOffset.UtcNow
+        };
+        await _outboxEventRepository.AddAsync(homeProvisionedEvent, cancellationToken);
 
         var response = new HomeResponse(
             homeEntity.Id,

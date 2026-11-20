@@ -541,7 +541,7 @@ namespace NexusHome.Infrastructure.Data.Migrations
 
                     b.HasIndex("HomeId")
                         .HasDatabaseName("idx_invitations_home_pending_claim")
-                        .HasFilter("is_accepted = false AND \"Role\" = 'owner' AND invitee_email IS NULL AND \"DeletedAt\" IS NULL");
+                        .HasFilter("is_accepted = false AND \"Role\" = 'Owner' AND invitee_email IS NULL AND \"DeletedAt\" IS NULL");
 
                     b.HasIndex("InvitedByUserId");
 

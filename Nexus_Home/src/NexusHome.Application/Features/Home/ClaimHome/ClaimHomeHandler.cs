@@ -5,7 +5,9 @@ using NexusHome.Application.Common;
 using NexusHome.Application.Interfaces;
 using NexusHome.Domain.Entities;
 using NexusHome.Domain.Enums;
+using NexusHome.Domain.Events;
 using System.Security.Cryptography;
+using System.Text.Json;
 using static NexusHome.Application.Common.Errors;
 using DomainHome = NexusHome.Domain.Entities.Home;
 
@@ -18,17 +20,20 @@ public sealed class ClaimHomeHandler : IRequestHandler<ClaimHomeCommand, Result<
     private readonly IClaimCredentialRepository _claimCredentialRepository;
     private readonly IUserRepository _userRepository;
     private readonly IMembershipRepository _membershipRepository;
+    private readonly IOutboxEventRepository _outboxEventRepository;
 
     public ClaimHomeHandler(
         IHomeRepository homeRepository,
         IClaimCredentialRepository claimCredentialRepository,
         IUserRepository userRepository,
-        IMembershipRepository membershipRepository)
+        IMembershipRepository membershipRepository,
+        IOutboxEventRepository outboxEventRepository)
     {
         _homeRepository = homeRepository;
         _claimCredentialRepository = claimCredentialRepository;
         _userRepository = userRepository;
         _membershipRepository = membershipRepository;
+        _outboxEventRepository = outboxEventRepository;
     }
 
     public async Task<Result<ClaimHomeResponse>> Handle(ClaimHomeCommand request, CancellationToken cancellationToken)
@@ -42,6 +47,16 @@ public sealed class ClaimHomeHandler : IRequestHandler<ClaimHomeCommand, Result<
         {
             return Errors.Home.ClaimCredentialNotFound;
         }
+
+        // Acquire row lock on the credential to prevent concurrent claim attempts
+        // We use the home ID from the credential we already found
+        var lockedCredential = await _claimCredentialRepository.GetPendingForUpdateWithLockAsync(credential.HomeId, cancellationToken);
+        if (lockedCredential == null || lockedCredential.Id != credential.Id)
+        {
+            // Credential was concurrently claimed or revoked
+            return Errors.Home.ClaimCredentialAlreadyUsed;
+        }
+        credential = lockedCredential;
 
         // Validate credential state
         if (credential.IsAccepted)
@@ -94,6 +109,23 @@ public sealed class ClaimHomeHandler : IRequestHandler<ClaimHomeCommand, Result<
             Role.Owner);
 
         await _membershipRepository.AddAsync(membership, cancellationToken);
+
+        // Publish HomeClaimed outbox event
+        var homeClaimedEvent = new OutboxEvent
+        {
+            Id = Guid.NewGuid(),
+            EventType = "home.claimed",
+            Payload = JsonSerializer.Serialize(new
+            {
+                homeId = credential.HomeId,
+                userId = request.UserId,
+                membershipId = membership.Id,
+                claimedAt = DateTimeOffset.UtcNow
+            }),
+            CorrelationId = credential.HomeId.ToString(),
+            CreatedAt = DateTimeOffset.UtcNow
+        };
+        await _outboxEventRepository.AddAsync(homeClaimedEvent, cancellationToken);
 
         // Build response
         var homeResponse = new HomeResponse(

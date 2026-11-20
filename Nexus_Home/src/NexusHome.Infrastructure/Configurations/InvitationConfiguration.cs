@@ -92,9 +92,9 @@ public class InvitationConfiguration : IEntityTypeConfiguration<Invitation>
 
         // Index for claim credential lookup: pending claim credentials by home
         // Using database column names for PostgreSQL partial index filter
-        // Note: Role column is "Role" (capital R), DeletedAt is "DeletedAt" in the database
+        // Note: Role column is "Role" (capital R), enum values are capitalized ('Owner')
         builder.HasIndex(i => i.HomeId)
-            .HasFilter("is_accepted = false AND \"Role\" = 'owner' AND invitee_email IS NULL AND \"DeletedAt\" IS NULL")
+            .HasFilter("is_accepted = false AND \"Role\" = 'Owner' AND invitee_email IS NULL AND \"DeletedAt\" IS NULL")
             .HasDatabaseName("idx_invitations_home_pending_claim");
 
         // Indexes

@@ -21,8 +21,8 @@ public sealed class ClaimCredentialRepository : IClaimCredentialRepository
     /// <inheritdoc />
     public async Task<Invitation?> GetPendingForUpdateAsync(Guid homeId, CancellationToken cancellationToken = default)
     {
-        // Use SELECT FOR UPDATE equivalent via EF Core's locking
-        // We'll load the entity and rely on optimistic concurrency via xmin
+        // Use SELECT FOR UPDATE to lock the row for the duration of the transaction
+        // This prevents race conditions when claiming a home
         return await _context.Invitations
             .Where(i => i.HomeId == homeId
                 && i.Role == NexusHome.Domain.Enums.Role.Owner
@@ -30,6 +30,29 @@ public sealed class ClaimCredentialRepository : IClaimCredentialRepository
                 && i.IsAccepted == false
                 && i.DeletedAt == null)
             .OrderByDescending(i => i.CreatedAt)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public async Task<Invitation?> GetPendingForUpdateWithLockAsync(Guid homeId, CancellationToken cancellationToken = default)
+    {
+        // Execute raw SQL with FOR UPDATE to acquire row-level lock
+        // This prevents concurrent claim attempts on the same home
+        var sql = @"
+            SELECT id, home_id, invitee_email, role, token, expires_at, is_accepted,
+                   invited_by_user_id, created_at, updated_at, deleted_at
+            FROM invitations
+            WHERE home_id = @homeId
+              AND role = 'Owner'
+              AND invitee_email IS NULL
+              AND is_accepted = false
+              AND deleted_at IS NULL
+            ORDER BY created_at DESC
+            LIMIT 1
+            FOR UPDATE";
+
+        return await _context.Invitations
+            .FromSqlRaw(sql, new Npgsql.NpgsqlParameter("@homeId", homeId))
             .FirstOrDefaultAsync(cancellationToken);
     }
 

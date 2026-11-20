@@ -4,6 +4,8 @@ using MediatR;
 using NexusHome.Application.Common;
 using NexusHome.Application.Interfaces;
 using NexusHome.Domain.Entities;
+using NexusHome.Domain.Events;
+using System.Text.Json;
 using static NexusHome.Application.Common.Errors;
 using DomainHome = NexusHome.Domain.Entities.Home;
 
@@ -15,15 +17,18 @@ public sealed class GenerateClaimCredentialHandler : IRequestHandler<GenerateCla
     private readonly IHomeRepository _homeRepository;
     private readonly IClaimCredentialRepository _claimCredentialRepository;
     private readonly ITokenService _tokenService;
+    private readonly IOutboxEventRepository _outboxEventRepository;
 
     public GenerateClaimCredentialHandler(
         IHomeRepository homeRepository,
         IClaimCredentialRepository claimCredentialRepository,
-        ITokenService tokenService)
+        ITokenService tokenService,
+        IOutboxEventRepository outboxEventRepository)
     {
         _homeRepository = homeRepository;
         _claimCredentialRepository = claimCredentialRepository;
         _tokenService = tokenService;
+        _outboxEventRepository = outboxEventRepository;
     }
 
     public async Task<Result<GenerateClaimCredentialResponse>> Handle(GenerateClaimCredentialCommand request, CancellationToken cancellationToken)
@@ -65,6 +70,23 @@ public sealed class GenerateClaimCredentialHandler : IRequestHandler<GenerateCla
             expiresAt);
 
         await _claimCredentialRepository.AddAsync(claimCredential, cancellationToken);
+
+        // Publish ClaimCredentialGenerated outbox event
+        var credentialGeneratedEvent = new OutboxEvent
+        {
+            Id = Guid.NewGuid(),
+            EventType = "claim.credential.generated",
+            Payload = JsonSerializer.Serialize(new
+            {
+                homeId = request.HomeId,
+                credentialId = claimCredential.Id,
+                expiresAt = expiresAt,
+                generatedAt = DateTimeOffset.UtcNow
+            }),
+            CorrelationId = request.HomeId.ToString(),
+            CreatedAt = DateTimeOffset.UtcNow
+        };
+        await _outboxEventRepository.AddAsync(credentialGeneratedEvent, cancellationToken);
 
         return Result<GenerateClaimCredentialResponse>.Success(new GenerateClaimCredentialResponse(
             plainCredential,

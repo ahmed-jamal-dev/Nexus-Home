@@ -8,9 +8,15 @@ using NexusHome.Domain.Entities;
 public interface IClaimCredentialRepository
 {
     /// <summary>
-    /// Gets the pending claim credential for a home (for update - uses row lock).
+    /// Gets the pending claim credential for a home (for update - uses row lock via FOR UPDATE).
     /// </summary>
     Task<Invitation?> GetPendingForUpdateAsync(Guid homeId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Gets the pending claim credential for a home with explicit FOR UPDATE row lock.
+    /// Use this when you need to prevent concurrent modifications during the claim flow.
+    /// </summary>
+    Task<Invitation?> GetPendingForUpdateWithLockAsync(Guid homeId, CancellationToken ct = default);
 
     /// <summary>
     /// Gets a claim credential by its token hash.
