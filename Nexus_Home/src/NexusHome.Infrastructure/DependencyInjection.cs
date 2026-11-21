@@ -60,6 +60,7 @@ public static class DependencyInjection
         services.AddScoped<IClaimCredentialRepository, ClaimCredentialRepository>();
         services.AddScoped<IMembershipRepository, MembershipRepository>();
         services.AddScoped<IOutboxEventRepository, OutboxEventRepository>();
+        services.AddScoped<IRoomRepository, RoomRepository>();
 
         return services;
     }

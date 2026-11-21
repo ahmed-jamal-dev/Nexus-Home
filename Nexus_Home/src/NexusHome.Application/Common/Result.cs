@@ -190,4 +190,10 @@ public static class Errors
 
         public static readonly Error ProvisioningForbidden = new("HOME.PROVISIONING_FORBIDDEN", "Provisioning requires elevated privileges");
     }
+
+    public static class RoomErrors
+    {
+        public static readonly Error RoomNotFound = new("ROOM.NOT_FOUND", "Room not found");
+        public static readonly Error DuplicateName = new("ROOM.DUPLICATE_NAME", "A room with this name already exists in the home");
+    }
 }

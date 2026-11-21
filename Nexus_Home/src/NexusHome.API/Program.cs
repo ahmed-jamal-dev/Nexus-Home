@@ -250,6 +250,7 @@ public class Program
         // API Endpoints
         app.MapAuthenticationEndpoints();
         app.MapHomeEndpoints();
+        app.MapRoomEndpoints();
 
         app.UseHttpsRedirection();
 
