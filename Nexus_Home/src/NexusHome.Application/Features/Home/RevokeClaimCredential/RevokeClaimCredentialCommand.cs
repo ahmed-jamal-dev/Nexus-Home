@@ -7,4 +7,5 @@ using NexusHome.Application.Common;
 /// Command to revoke a claim credential (internal/trusted operation).
 /// </summary>
 public sealed record RevokeClaimCredentialCommand(
+    Guid TechnicianUserId,
     Guid HomeId) : IRequest<Result>;

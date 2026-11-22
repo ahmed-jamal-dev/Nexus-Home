@@ -50,6 +50,12 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
             .HasColumnName("updated_at")
             .HasDefaultValueSql("now()");
 
+        // Platform Administration: roles version for token invalidation
+        builder.Property(u => u.PlatformRolesVersion)
+            .HasColumnName("platform_roles_version")
+            .HasDefaultValue(1)
+            .IsRequired();
+
         // Partial unique index: email unique only among non-deleted users
         builder.HasIndex(u => u.Email)
             .IsUnique()
@@ -60,5 +66,11 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
         builder.HasIndex(u => u.DeletedAt)
             .HasDatabaseName("idx_users_deleted_at")
             .HasFilter("deleted_at IS NOT NULL");
+
+        // Navigation: Platform roles
+        builder.HasMany(u => u.UserPlatformRoles)
+            .WithOne(upr => upr.User)
+            .HasForeignKey(upr => upr.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }

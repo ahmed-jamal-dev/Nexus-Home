@@ -6,6 +6,7 @@ using Microsoft.Extensions.Logging;
 using NexusHome.Domain.Entities;
 using NexusHome.Infrastructure.Configurations;
 using NexusHome.Infrastructure.Entities;
+using NexusHome.Infrastructure.Data.Configurations;
 
 /// <summary>
 /// Main DbContext for Nexus Home.
@@ -47,6 +48,11 @@ public class NexusHomeDbContext : DbContext
     // Domain entities - Authentication
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
+    // Domain entities - Platform Administration
+    public DbSet<PlatformRole> PlatformRoles => Set<PlatformRole>();
+    public DbSet<UserPlatformRole> UserPlatformRoles => Set<UserPlatformRole>();
+    public DbSet<PlatformAuditLog> PlatformAuditLogs => Set<PlatformAuditLog>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -66,12 +72,16 @@ public class NexusHomeDbContext : DbContext
         modelBuilder.ApplyConfiguration(new OutboxEventConfiguration());
         modelBuilder.ApplyConfiguration(new TelemetryDedupLedgerConfiguration());
         modelBuilder.ApplyConfiguration(new RefreshTokenConfiguration());
+        modelBuilder.ApplyConfiguration(new PlatformRoleConfiguration());
+        modelBuilder.ApplyConfiguration(new UserPlatformRoleConfiguration());
+        modelBuilder.ApplyConfiguration(new PlatformAuditLogConfiguration());
 
         // Global query filters for soft delete
         modelBuilder.Entity<User>().HasQueryFilter(u => u.DeletedAt == null);
         modelBuilder.Entity<Home>().HasQueryFilter(h => h.DeletedAt == null);
         modelBuilder.Entity<Room>().HasQueryFilter(r => r.DeletedAt == null);
         modelBuilder.Entity<Device>().HasQueryFilter(d => d.RemovedAt == null);
+        modelBuilder.Entity<UserPlatformRole>().HasQueryFilter(upr => upr.IsActive);
 
         // Matching query filters for dependent entities to avoid EF Core warnings
         modelBuilder.Entity<DeviceTelemetry>().HasQueryFilter(t => t.Device != null && t.Device.RemovedAt == null);
@@ -185,6 +195,24 @@ public class NexusHomeDbContext : DbContext
                 rt.UpdatedAt = DateTime.UtcNow;
                 if (entry.State == EntityState.Added)
                     rt.CreatedAt = DateTime.UtcNow;
+            }
+            else if (entry.Entity is PlatformRole pr)
+            {
+                pr.UpdatedAt = DateTime.UtcNow;
+                if (entry.State == EntityState.Added)
+                    pr.CreatedAt = DateTime.UtcNow;
+            }
+            else if (entry.Entity is UserPlatformRole upr)
+            {
+                upr.UpdatedAt = DateTime.UtcNow;
+                if (entry.State == EntityState.Added)
+                    upr.CreatedAt = DateTime.UtcNow;
+            }
+            else if (entry.Entity is PlatformAuditLog pal)
+            {
+                // PlatformAuditLog is immutable - no UpdatedAt
+                if (entry.State == EntityState.Added)
+                    pal.CreatedAt = DateTime.UtcNow;
             }
         }
     }

@@ -30,10 +30,13 @@ public sealed class TokenService : ITokenService
     }
 
     /// <inheritdoc />
-    public string GenerateAccessToken(User user)
+    public string GenerateAccessToken(User user, IEnumerable<string> roleKeys, IEnumerable<(string RoleKey, Guid? ScopeId, string? ScopeType)> roleScopes, int platformRolesVersion)
     {
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtSettings.SigningKey));
         var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+        var roleKeysList = roleKeys.ToList();
+        var roleScopesList = roleScopes.ToList();
 
         var claims = new List<Claim>
         {
@@ -42,7 +45,37 @@ public sealed class TokenService : ITokenService
             new Claim(Microsoft.IdentityModel.JsonWebTokens.JwtRegisteredClaimNames.Name, user.FullName),
             new Claim(Microsoft.IdentityModel.JsonWebTokens.JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
             new Claim("email_verified", user.EmailVerified.ToString().ToLowerInvariant()),
+            new Claim("prv", platformRolesVersion.ToString()),
         };
+
+        // Add roles claim (comma-separated for simplicity, as per design)
+        if (roleKeysList.Count > 0)
+        {
+            claims.Add(new Claim("roles", string.Join(",", roleKeysList)));
+        }
+
+        // Add scopes claim (space-delimited per OAuth2) - derived from roles via RoleScopeMap
+        var scopes = roleKeysList
+            .SelectMany(rk => RoleScopeMap.GetScopes(rk))
+            .Distinct()
+            .ToList();
+
+        if (scopes.Count > 0)
+        {
+            claims.Add(new Claim("scope", string.Join(" ", scopes)));
+        }
+
+        // For Technician role: also add the home scope (homeId) as a separate claim for scoping
+        // This is used by handlers to check if technician has access to specific home
+        var technicianScope = roleScopesList
+            .Where(rs => rs.RoleKey == "Technician" && rs.ScopeId.HasValue)
+            .Select(rs => rs.ScopeId!.Value.ToString())
+            .FirstOrDefault();
+
+        if (!string.IsNullOrEmpty(technicianScope))
+        {
+            claims.Add(new Claim("home_scope", technicianScope));
+        }
 
         var tokenDescriptor = new SecurityTokenDescriptor
         {
@@ -125,3 +158,4 @@ public sealed class JwtSettings
     public int RefreshTokenExpirationDays { get; init; } = 30;
     public string SigningKey { get; init; } = string.Empty;
 }
+

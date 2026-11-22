@@ -8,4 +8,5 @@ using NexusHome.Application.Common;
 /// Never returns the plaintext credential.
 /// </summary>
 public sealed record GetClaimCredentialQuery(
+    Guid TechnicianUserId,
     Guid HomeId) : IRequest<Result<GetClaimCredentialResponse>>;

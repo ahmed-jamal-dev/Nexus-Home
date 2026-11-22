@@ -196,4 +196,23 @@ public static class Errors
         public static readonly Error RoomNotFound = new("ROOM.NOT_FOUND", "Room not found");
         public static readonly Error DuplicateName = new("ROOM.DUPLICATE_NAME", "A room with this name already exists in the home");
     }
+
+    public static class Platform
+    {
+        public static readonly Error UserNotFound = new("PLATFORM.USER_NOT_FOUND", "User not found");
+        public static readonly Error UserAlreadyExists = new("PLATFORM.USER_ALREADY_EXISTS", "User already exists");
+        public static readonly Error CannotDeactivateSelf = new("PLATFORM.CANNOT_DEACTIVATE_SELF", "Cannot deactivate your own account");
+        public static readonly Error CannotModifySuperAdmin = new("PLATFORM.CANNOT_MODIFY_SUPER_ADMIN", "Cannot modify SuperAdmin users");
+        public static readonly Error RoleNotFound = new("PLATFORM.ROLE_NOT_FOUND", "Platform role not found");
+        public static readonly Error RoleAlreadyAssigned = new("PLATFORM.ROLE_ALREADY_ASSIGNED", "User already has this role");
+        public static readonly Error RoleAssignmentNotFound = new("PLATFORM.ROLE_ASSIGNMENT_NOT_FOUND", "Role assignment not found");
+        public static readonly Error CannotRevokeSystemRole = new("PLATFORM.CANNOT_REVOKE_SYSTEM_ROLE", "Cannot revoke system roles from SuperAdmin");
+        public static readonly Error HomeNotFound = new("PLATFORM.HOME_NOT_FOUND", "Home not found");
+        public static readonly Error HomeDeleted = new("PLATFORM.HOME_DELETED", "Home has been deleted");
+        public static readonly Error InsufficientPrivilege = new("PLATFORM.INSUFFICIENT_PRIVILEGE", "Insufficient platform privilege for this operation");
+        public static readonly Error TokenVersionMismatch = new("PLATFORM.TOKEN_VERSION_MISMATCH", "Token platform roles version mismatch");
+        public static readonly Error AuditLogNotFound = new("PLATFORM.AUDIT_LOG_NOT_FOUND", "Audit log not found");
+        public static readonly Error InvalidScope = new("PLATFORM.INVALID_SCOPE", "Invalid scope for role assignment");
+        public static readonly Error ScopeRequired = new("PLATFORM.SCOPE_REQUIRED", "Scope is required for Technician role");
+    }
 }

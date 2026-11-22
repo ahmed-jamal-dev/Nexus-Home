@@ -42,6 +42,16 @@ public class Home : Entity
     public string Timezone { get; private set; } = "UTC";
 
     /// <summary>
+    /// ID of the technician who provisioned this home (for scoping).
+    /// </summary>
+    public Guid? ProvisionedByTechnicianId { get; private set; }
+
+    /// <summary>
+    /// Navigation to the technician who provisioned this home.
+    /// </summary>
+    public User? ProvisionedByTechnician { get; private set; }
+
+    /// <summary>
     /// Memberships in this home.
     /// </summary>
     public ICollection<Membership> Memberships { get; private set; } = new List<Membership>();
@@ -89,6 +99,15 @@ public class Home : Entity
         PostalCode = postalCode;
         if (!string.IsNullOrWhiteSpace(timezone))
             Timezone = timezone;
+        Touch();
+    }
+
+    /// <summary>
+    /// Sets the technician who provisioned this home.
+    /// </summary>
+    public void SetProvisionedByTechnician(Guid technicianId)
+    {
+        ProvisionedByTechnicianId = technicianId;
         Touch();
     }
 }

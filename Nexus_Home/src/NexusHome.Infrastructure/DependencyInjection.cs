@@ -61,6 +61,9 @@ public static class DependencyInjection
         services.AddScoped<IMembershipRepository, MembershipRepository>();
         services.AddScoped<IOutboxEventRepository, OutboxEventRepository>();
         services.AddScoped<IRoomRepository, RoomRepository>();
+        services.AddScoped<IPlatformRoleRepository, PlatformRoleRepository>();
+        services.AddScoped<IUserPlatformRoleRepository, UserPlatformRoleRepository>();
+        services.AddScoped<IPlatformAuditLogRepository, PlatformAuditLogRepository>();
 
         return services;
     }

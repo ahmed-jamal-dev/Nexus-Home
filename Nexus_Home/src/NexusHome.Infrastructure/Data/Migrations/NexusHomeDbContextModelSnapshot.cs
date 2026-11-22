@@ -454,6 +454,10 @@ namespace NexusHome.Infrastructure.Data.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
 
+                    b.Property<Guid?>("ProvisionedByTechnicianId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("provisioned_by_technician_id");
+
                     b.Property<string>("StateProvince")
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
@@ -476,6 +480,9 @@ namespace NexusHome.Infrastructure.Data.Migrations
                     b.HasIndex("DeletedAt")
                         .HasDatabaseName("idx_homes_deleted_at")
                         .HasFilter("deleted_at IS NOT NULL");
+
+                    b.HasIndex("ProvisionedByTechnicianId")
+                        .HasDatabaseName("idx_homes_provisioned_by_technician");
 
                     b.ToTable("homes", (string)null);
                 });
@@ -704,6 +711,150 @@ namespace NexusHome.Infrastructure.Data.Migrations
                     b.ToTable("permissions", (string)null);
                 });
 
+            modelBuilder.Entity("NexusHome.Domain.Entities.PlatformAuditLog", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<Guid>("ActorUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Details")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
+                    b.Property<string>("ErrorMessage")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("IpAddress")
+                        .HasMaxLength(45)
+                        .HasColumnType("character varying(45)");
+
+                    b.Property<bool>("Success")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("TargetId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("TargetType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("UserAgent")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ActorUserId")
+                        .HasDatabaseName("ix_platform_audit_logs_actor_user_id");
+
+                    b.HasIndex("CreatedAt")
+                        .HasDatabaseName("ix_platform_audit_logs_created_at");
+
+                    b.HasIndex("TargetId")
+                        .HasDatabaseName("ix_platform_audit_logs_target_id");
+
+                    b.HasIndex("TargetType")
+                        .HasDatabaseName("ix_platform_audit_logs_target_type");
+
+                    b.HasIndex("TargetType", "TargetId")
+                        .HasDatabaseName("ix_platform_audit_logs_target");
+
+                    b.ToTable("platform_audit_logs", (string)null);
+                });
+
+            modelBuilder.Entity("NexusHome.Domain.Entities.PlatformRole", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<int>("HierarchyLevel")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("IsSystemRole")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Key")
+                        .IsUnique()
+                        .HasDatabaseName("ix_platform_roles_key");
+
+                    b.ToTable("platform_roles", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0000-000000000001"),
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Description = "Full platform access including role management and user administration",
+                            HierarchyLevel = 100,
+                            IsSystemRole = true,
+                            Key = "SuperAdmin",
+                            Name = "Super Administrator",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0000-000000000002"),
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Description = "Platform administration including user management and home oversight",
+                            HierarchyLevel = 80,
+                            IsSystemRole = true,
+                            Key = "PlatformAdmin",
+                            Name = "Platform Administrator",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0000-000000000003"),
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Description = "Provisions and manages assigned homes only",
+                            HierarchyLevel = 50,
+                            IsSystemRole = true,
+                            Key = "Technician",
+                            Name = "Technician",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        });
+                });
+
             modelBuilder.Entity("NexusHome.Domain.Entities.RefreshToken", b =>
                 {
                     b.Property<Guid>("Id")
@@ -914,6 +1065,12 @@ namespace NexusHome.Infrastructure.Data.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("character varying(255)");
 
+                    b.Property<int>("PlatformRolesVersion")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(1)
+                        .HasColumnName("platform_roles_version");
+
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
@@ -932,6 +1089,66 @@ namespace NexusHome.Infrastructure.Data.Migrations
                         .HasFilter("deleted_at IS NULL");
 
                     b.ToTable("users", (string)null);
+                });
+
+            modelBuilder.Entity("NexusHome.Domain.Entities.UserPlatformRole", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("AssignedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("AssignedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
+
+                    b.Property<Guid>("PlatformRoleId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("ScopeId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ScopeType")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PlatformRoleId")
+                        .HasDatabaseName("ix_user_platform_roles_role_id");
+
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("ix_user_platform_roles_user_id");
+
+                    b.HasIndex("ScopeType", "ScopeId")
+                        .HasDatabaseName("ix_user_platform_roles_scope");
+
+                    b.HasIndex("UserId", "PlatformRoleId", "ScopeType", "ScopeId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_user_platform_roles_unique");
+
+                    b.ToTable("user_platform_roles", (string)null);
                 });
 
             modelBuilder.Entity("NexusHome.Infrastructure.Entities.OutboxEvent", b =>
@@ -1135,6 +1352,16 @@ namespace NexusHome.Infrastructure.Data.Migrations
                     b.Navigation("Device");
                 });
 
+            modelBuilder.Entity("NexusHome.Domain.Entities.Home", b =>
+                {
+                    b.HasOne("NexusHome.Domain.Entities.User", "ProvisionedByTechnician")
+                        .WithMany()
+                        .HasForeignKey("ProvisionedByTechnicianId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("ProvisionedByTechnician");
+                });
+
             modelBuilder.Entity("NexusHome.Domain.Entities.Invitation", b =>
                 {
                     b.HasOne("NexusHome.Domain.Entities.Home", "Home")
@@ -1198,6 +1425,16 @@ namespace NexusHome.Infrastructure.Data.Migrations
                     b.Navigation("Home");
                 });
 
+            modelBuilder.Entity("NexusHome.Domain.Entities.PlatformAuditLog", b =>
+                {
+                    b.HasOne("NexusHome.Domain.Entities.User", "ActorUser")
+                        .WithMany()
+                        .HasForeignKey("ActorUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("ActorUser");
+                });
+
             modelBuilder.Entity("NexusHome.Domain.Entities.RefreshToken", b =>
                 {
                     b.HasOne("NexusHome.Domain.Entities.User", "User")
@@ -1227,6 +1464,25 @@ namespace NexusHome.Infrastructure.Data.Migrations
                         .HasForeignKey("NexusHome.Domain.Entities.Settings", "UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("NexusHome.Domain.Entities.UserPlatformRole", b =>
+                {
+                    b.HasOne("NexusHome.Domain.Entities.PlatformRole", "PlatformRole")
+                        .WithMany("UserPlatformRoles")
+                        .HasForeignKey("PlatformRoleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("NexusHome.Domain.Entities.User", "User")
+                        .WithMany("UserPlatformRoles")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("PlatformRole");
 
                     b.Navigation("User");
                 });
@@ -1265,6 +1521,11 @@ namespace NexusHome.Infrastructure.Data.Migrations
                     b.Navigation("ReceivedPermissions");
                 });
 
+            modelBuilder.Entity("NexusHome.Domain.Entities.PlatformRole", b =>
+                {
+                    b.Navigation("UserPlatformRoles");
+                });
+
             modelBuilder.Entity("NexusHome.Domain.Entities.Room", b =>
                 {
                     b.Navigation("Devices");
@@ -1283,6 +1544,8 @@ namespace NexusHome.Infrastructure.Data.Migrations
                     b.Navigation("SentInvitations");
 
                     b.Navigation("Settings");
+
+                    b.Navigation("UserPlatformRoles");
                 });
 #pragma warning restore 612, 618
         }

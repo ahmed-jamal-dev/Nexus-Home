@@ -1,3 +1,4 @@
+using FluentValidation;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
@@ -10,7 +11,11 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using NexusHome.Api.Endpoints.Authentication;
 using NexusHome.Api.Endpoints.Home;
+using NexusHome.Api.Endpoints.Platform;
+using NexusHome.Api.Filters;
 using NexusHome.Application;
+using NexusHome.Application.Interfaces;
+using NexusHome.Domain.Entities;
 using NexusHome.Infrastructure;
 using NexusHome.Infrastructure.Authentication;
 using NexusHome.Infrastructure.Data;
@@ -23,6 +28,13 @@ public class Program
 {
     public static async Task Main(string[] args)
     {
+        // Check for bootstrap command
+        if (args.Length > 0 && args[0] == "bootstrap-superadmin")
+        {
+            await RunBootstrapSuperAdminAsync(args);
+            return;
+        }
+
         var builder = WebApplication.CreateBuilder(args);
 
         // Add services to the container.
@@ -113,11 +125,55 @@ public class Program
         // Authorization policies
         builder.Services.AddAuthorization(options =>
         {
-            // HomeProvisioning policy: requires scope:home.provision or role:provisioner claim
+            // HomeProvisioning policy: requires scope:home.provision OR role:Technician
             options.AddPolicy("HomeProvisioning", policy =>
                 policy.RequireAssertion(context =>
-                    context.User.HasClaim(c => c.Type == "scope" && c.Value == "home.provision") ||
-                    context.User.HasClaim(c => c.Type == System.Security.Claims.ClaimTypes.Role && c.Value == "provisioner")));
+                    context.User.HasClaim(c => c.Type == "scope" && c.Value.Split(' ').Contains("home.provision")) ||
+                    context.User.HasClaim(c => c.Type == "roles" && c.Value.Contains("Technician"))));
+
+            // Platform administration role-based policies (for portal/UI access control)
+            options.AddPolicy("SuperAdmin", policy =>
+                policy.RequireAssertion(context =>
+                    context.User.HasClaim(c => c.Type == "roles" && c.Value.Contains("SuperAdmin"))));
+
+            options.AddPolicy("PlatformAdmin", policy =>
+                policy.RequireAssertion(context =>
+                    context.User.HasClaim(c => c.Type == "roles" && (c.Value.Contains("SuperAdmin") || c.Value.Contains("PlatformAdmin")))));
+
+            options.AddPolicy("Technician", policy =>
+                policy.RequireAssertion(context =>
+                    context.User.HasClaim(c => c.Type == "roles" && c.Value.Contains("Technician"))));
+
+            // SupportAgent deferred to Phase 1.5 - policy not enabled in MVP
+
+            // Scope-based policies for fine-grained API endpoint authorization
+            options.AddPolicy("UserRead", policy =>
+                policy.RequireAssertion(context =>
+                    context.User.HasClaim(c => c.Type == "scope" && c.Value.Split(' ').Contains("user:read"))));
+
+            options.AddPolicy("UserManage", policy =>
+                policy.RequireAssertion(context =>
+                    context.User.HasClaim(c => c.Type == "scope" && c.Value.Split(' ').Contains("user:manage"))));
+
+            options.AddPolicy("HomeRead", policy =>
+                policy.RequireAssertion(context =>
+                    context.User.HasClaim(c => c.Type == "scope" && c.Value.Split(' ').Contains("home:read"))));
+
+            options.AddPolicy("HomeManage", policy =>
+                policy.RequireAssertion(context =>
+                    context.User.HasClaim(c => c.Type == "scope" && c.Value.Split(' ').Contains("home:manage"))));
+
+            options.AddPolicy("PlatformHealth", policy =>
+                policy.RequireAssertion(context =>
+                    context.User.HasClaim(c => c.Type == "scope" && c.Value.Split(' ').Contains("platform:health"))));
+
+            options.AddPolicy("PlatformAudit", policy =>
+                policy.RequireAssertion(context =>
+                    context.User.HasClaim(c => c.Type == "scope" && c.Value.Split(' ').Contains("platform:audit"))));
+
+            options.AddPolicy("PlatformConfig", policy =>
+                policy.RequireAssertion(context =>
+                    context.User.HasClaim(c => c.Type == "scope" && c.Value.Split(' ').Contains("platform:config"))));
         });
 
         // Rate limiting
@@ -143,6 +199,9 @@ public class Program
 
             options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
         });
+
+        // Platform roles version filter (validates prv claim against database)
+        builder.Services.AddTransient<PlatformRolesVersionFilter>();
 
         // Health Checks
         builder.Services.AddHealthChecks()
@@ -229,8 +288,56 @@ public class Program
         // Rate limiting middleware
         app.UseRateLimiter();
 
-        // Global exception handler
-        app.UseExceptionHandler();
+        // Global exception handler with custom handling for FluentValidation
+        app.UseExceptionHandler(exceptionHandlerApp =>
+        {
+            exceptionHandlerApp.Run(async context =>
+            {
+                var exceptionHandlerPathFeature = context.Features.Get<IExceptionHandlerPathFeature>();
+                var exception = exceptionHandlerPathFeature?.Error;
+
+                var logger = context.RequestServices.GetRequiredService<ILogger<Program>>();
+
+                if (exception is ValidationException validationException)
+                {
+                    logger.LogWarning(validationException, "Validation failed");
+                    context.Response.StatusCode = StatusCodes.Status400BadRequest;
+                    context.Response.ContentType = "application/problem+json";
+
+                    var errors = validationException.Errors
+                        .GroupBy(e => e.PropertyName)
+                        .ToDictionary(
+                            g => g.Key,
+                            g => g.Select(e => e.ErrorMessage).ToArray());
+
+                    var problemDetails = new HttpValidationProblemDetails(errors)
+                    {
+                        Status = StatusCodes.Status400BadRequest,
+                        Title = "Validation failed",
+                        Detail = "One or more validation errors occurred.",
+                        Instance = context.Request.Path
+                    };
+
+                    await context.Response.WriteAsJsonAsync(problemDetails);
+                    return;
+                }
+
+                // Log unhandled exceptions
+                logger.LogError(exception, "Unhandled exception occurred");
+
+                // Default error response
+                context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+                context.Response.ContentType = "application/problem+json";
+
+                await context.Response.WriteAsJsonAsync(new
+                {
+                    type = "https://tools.ietf.org/html/rfc9110#section-15.6.1",
+                    title = "An error occurred while processing your request.",
+                    status = StatusCodes.Status500InternalServerError,
+                    traceId = context.TraceIdentifier
+                });
+            });
+        });
 
         // Health check endpoints
         app.MapHealthChecks("/health/live", new HealthCheckOptions
@@ -251,6 +358,7 @@ public class Program
         app.MapAuthenticationEndpoints();
         app.MapHomeEndpoints();
         app.MapRoomEndpoints();
+        app.MapPlatformEndpoints();
 
         app.UseHttpsRedirection();
 
@@ -263,6 +371,134 @@ public class Program
         }
 
         await app.RunAsync();
+    }
+
+    private static async Task RunBootstrapSuperAdminAsync(string[] args)
+    {
+        // Parse arguments
+        string? email = null;
+        string? fullName = null;
+        string? password = null;
+
+        for (int i = 1; i < args.Length; i++)
+        {
+            switch (args[i])
+            {
+                case "--email" when i + 1 < args.Length:
+                    email = args[++i];
+                    break;
+                case "--name" when i + 1 < args.Length:
+                    fullName = args[++i];
+                    break;
+                case "--password" when i + 1 < args.Length:
+                    password = args[++i];
+                    break;
+            }
+        }
+
+        if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(fullName))
+        {
+            Console.WriteLine("Usage: dotnet run -- bootstrap-superadmin --email <email> --name <name> [--password <password>]");
+            Console.WriteLine("If --password is not provided, a secure random password will be generated and displayed.");
+            Environment.Exit(1);
+        }
+
+        // Build minimal host for DI
+        var builder = WebApplication.CreateBuilder(new string[0]);
+        builder.Configuration.AddEnvironmentVariables(prefix: "CONNECTIONSTRINGS__");
+
+        builder.Services.AddApplication();
+        builder.Services.AddInfrastructure(builder.Configuration);
+
+        var app = builder.Build();
+
+        using var scope = app.Services.CreateScope();
+        var serviceProvider = scope.ServiceProvider;
+
+        var dbContext = serviceProvider.GetRequiredService<NexusHomeDbContext>();
+        var passwordHasher = serviceProvider.GetRequiredService<IPasswordHasher>();
+        var platformRoleRepository = serviceProvider.GetRequiredService<IPlatformRoleRepository>();
+        var userPlatformRoleRepository = serviceProvider.GetRequiredService<IUserPlatformRoleRepository>();
+        var auditLogRepository = serviceProvider.GetRequiredService<IPlatformAuditLogRepository>();
+
+        // Ensure database is created
+        await dbContext.Database.EnsureCreatedAsync();
+
+        // Check if SuperAdmin already exists
+        var existingSuperAdmins = await userPlatformRoleRepository.GetByRoleKeyAsync("SuperAdmin");
+        if (existingSuperAdmins.Count > 0)
+        {
+            Console.WriteLine("SuperAdmin already exists. Bootstrap aborted.");
+            Environment.Exit(1);
+        }
+
+        // Check if user already exists
+        var userRepository = serviceProvider.GetRequiredService<IUserRepository>();
+        var existingUser = await userRepository.GetByEmailAsync(email.Trim().ToLowerInvariant());
+        if (existingUser != null)
+        {
+            Console.WriteLine($"User with email {email} already exists. Bootstrap aborted.");
+            Environment.Exit(1);
+        }
+
+        // Generate password if not provided
+        if (string.IsNullOrWhiteSpace(password))
+        {
+            password = GenerateSecurePassword();
+            Console.WriteLine($"Generated password: {password}");
+            Console.WriteLine("SAVE THIS PASSWORD - IT WILL NOT BE SHOWN AGAIN!");
+        }
+
+        // Hash password
+        var passwordHash = passwordHasher.HashPassword(password);
+
+        // Create user
+        var user = new User(Guid.NewGuid(), email.Trim().ToLowerInvariant(), passwordHash, fullName.Trim());
+        user.VerifyEmail(); // SuperAdmin is pre-verified
+
+        dbContext.Users.Add(user);
+        await dbContext.SaveChangesAsync();
+
+        // Get SuperAdmin role
+        var superAdminRole = await platformRoleRepository.GetByKeyAsync("SuperAdmin");
+        if (superAdminRole == null)
+        {
+            Console.WriteLine("SuperAdmin role not found in database. Bootstrap aborted.");
+            Environment.Exit(1);
+        }
+
+        // Assign SuperAdmin role
+        var userPlatformRole = UserPlatformRole.Create(user.Id, superAdminRole.Id, user.Id);
+        await userPlatformRoleRepository.AddAsync(userPlatformRole);
+
+        // Audit log
+        var auditLog = PlatformAuditLog.Create(
+            user.Id,
+            "SuperAdminBootstrap",
+            "User",
+            user.Id,
+            $"{{\"email\":\"{user.Email}\",\"fullName\":\"{user.FullName}\"}}");
+
+        await auditLogRepository.AddAsync(auditLog);
+
+        Console.WriteLine($"SuperAdmin created successfully!");
+        Console.WriteLine($"User ID: {user.Id}");
+        Console.WriteLine($"Email: {user.Email}");
+        Console.WriteLine($"Name: {user.FullName}");
+    }
+
+    private static string GenerateSecurePassword()
+    {
+        const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*";
+        using var random = System.Security.Cryptography.RandomNumberGenerator.Create();
+        var bytes = new byte[16];
+        random.GetBytes(bytes);
+        var result = new char[16];
+        for (int i = 0; i < 16; i++)
+        {
+            result[i] = chars[bytes[i] % chars.Length];
+        }
+        return new string(result);
     }
 }
 

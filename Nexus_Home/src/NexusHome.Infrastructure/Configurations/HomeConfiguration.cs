@@ -54,6 +54,19 @@ public class HomeConfiguration : IEntityTypeConfiguration<Home>
             .HasColumnName("updated_at")
             .HasDefaultValueSql("now()");
 
+        // Platform Administration: technician who provisioned this home (for scoping)
+        builder.Property(h => h.ProvisionedByTechnicianId)
+            .HasColumnName("provisioned_by_technician_id");
+
+        builder.HasOne(h => h.ProvisionedByTechnician)
+            .WithMany()
+            .HasForeignKey(h => h.ProvisionedByTechnicianId)
+            .OnDelete(DeleteBehavior.SetNull)
+            .IsRequired(false);
+
+        builder.HasIndex(h => h.ProvisionedByTechnicianId)
+            .HasDatabaseName("idx_homes_provisioned_by_technician");
+
         // Index for deleted_at queries
         builder.HasIndex(h => h.DeletedAt)
             .HasDatabaseName("idx_homes_deleted_at")

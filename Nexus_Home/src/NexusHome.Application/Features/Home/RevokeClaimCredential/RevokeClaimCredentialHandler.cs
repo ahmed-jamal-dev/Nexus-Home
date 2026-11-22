@@ -17,15 +17,21 @@ public sealed class RevokeClaimCredentialHandler : IRequestHandler<RevokeClaimCr
     private readonly IHomeRepository _homeRepository;
     private readonly IClaimCredentialRepository _claimCredentialRepository;
     private readonly IOutboxEventRepository _outboxEventRepository;
+    private readonly IPlatformAuditLogRepository _auditLogRepository;
+    private readonly IUserPlatformRoleRepository _userPlatformRoleRepository;
 
     public RevokeClaimCredentialHandler(
         IHomeRepository homeRepository,
         IClaimCredentialRepository claimCredentialRepository,
-        IOutboxEventRepository outboxEventRepository)
+        IOutboxEventRepository outboxEventRepository,
+        IPlatformAuditLogRepository auditLogRepository,
+        IUserPlatformRoleRepository userPlatformRoleRepository)
     {
         _homeRepository = homeRepository;
         _claimCredentialRepository = claimCredentialRepository;
         _outboxEventRepository = outboxEventRepository;
+        _auditLogRepository = auditLogRepository;
+        _userPlatformRoleRepository = userPlatformRoleRepository;
     }
 
     public async Task<Result> Handle(RevokeClaimCredentialCommand request, CancellationToken cancellationToken)
@@ -35,6 +41,15 @@ public sealed class RevokeClaimCredentialHandler : IRequestHandler<RevokeClaimCr
         if (homeEntity == null)
         {
             return Errors.Home.HomeNotFound;
+        }
+
+        // Verify technician scoping: technician must be provisionedByTechnicianId for this home
+        // or have PlatformAdmin/SuperAdmin role
+        var isPlatformAdmin = await _userPlatformRoleRepository.HasPlatformAdminOrHigherAsync(request.TechnicianUserId, cancellationToken);
+
+        if (!isPlatformAdmin && homeEntity.ProvisionedByTechnicianId != request.TechnicianUserId)
+        {
+            return Errors.Home.ProvisioningForbidden;
         }
 
         var credential = await _claimCredentialRepository.GetPendingForUpdateAsync(request.HomeId, cancellationToken);
@@ -58,12 +73,23 @@ public sealed class RevokeClaimCredentialHandler : IRequestHandler<RevokeClaimCr
             {
                 homeId = request.HomeId,
                 credentialId = credentialId,
-                revokedAt = DateTimeOffset.UtcNow
+                revokedAt = DateTimeOffset.UtcNow,
+                revokedByTechnicianId = request.TechnicianUserId
             }),
             CorrelationId = request.HomeId.ToString(),
             CreatedAt = DateTimeOffset.UtcNow
         };
         await _outboxEventRepository.AddAsync(credentialRevokedEvent, cancellationToken);
+
+        // Audit log
+        var auditLog = PlatformAuditLog.Create(
+            request.TechnicianUserId,
+            "ClaimCredentialRevoked",
+            "Home",
+            request.HomeId,
+            $"{{\"homeId\":\"{request.HomeId}\"}}");
+
+        await _auditLogRepository.AddAsync(auditLog, cancellationToken);
 
         return Result.Success();
     }

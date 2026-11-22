@@ -7,4 +7,5 @@ using NexusHome.Application.Common;
 /// Command to generate a claim credential for a home (internal/trusted operation).
 /// </summary>
 public sealed record GenerateClaimCredentialCommand(
+    Guid TechnicianUserId,
     Guid HomeId) : IRequest<Result<GenerateClaimCredentialResponse>>;

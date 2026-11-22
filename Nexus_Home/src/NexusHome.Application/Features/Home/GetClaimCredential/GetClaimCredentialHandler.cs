@@ -14,13 +14,16 @@ public sealed class GetClaimCredentialHandler : IRequestHandler<GetClaimCredenti
 {
     private readonly IHomeRepository _homeRepository;
     private readonly IClaimCredentialRepository _claimCredentialRepository;
+    private readonly IUserPlatformRoleRepository _userPlatformRoleRepository;
 
     public GetClaimCredentialHandler(
         IHomeRepository homeRepository,
-        IClaimCredentialRepository claimCredentialRepository)
+        IClaimCredentialRepository claimCredentialRepository,
+        IUserPlatformRoleRepository userPlatformRoleRepository)
     {
         _homeRepository = homeRepository;
         _claimCredentialRepository = claimCredentialRepository;
+        _userPlatformRoleRepository = userPlatformRoleRepository;
     }
 
     public async Task<Result<GetClaimCredentialResponse>> Handle(GetClaimCredentialQuery request, CancellationToken cancellationToken)
@@ -30,6 +33,15 @@ public sealed class GetClaimCredentialHandler : IRequestHandler<GetClaimCredenti
         if (homeEntity == null)
         {
             return Errors.Home.HomeNotFound;
+        }
+
+        // Verify technician scoping: technician must be provisionedByTechnicianId for this home
+        // or have PlatformAdmin/SuperAdmin role
+        var isPlatformAdmin = await _userPlatformRoleRepository.HasPlatformAdminOrHigherAsync(request.TechnicianUserId, cancellationToken);
+
+        if (!isPlatformAdmin && homeEntity.ProvisionedByTechnicianId != request.TechnicianUserId)
+        {
+            return Errors.Home.ProvisioningForbidden;
         }
 
         var credential = await _claimCredentialRepository.GetPendingForUpdateAsync(request.HomeId, cancellationToken);

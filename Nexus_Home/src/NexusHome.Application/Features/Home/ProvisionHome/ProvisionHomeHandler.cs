@@ -16,13 +16,16 @@ public sealed class ProvisionHomeHandler : IRequestHandler<ProvisionHomeCommand,
 {
     private readonly IHomeRepository _homeRepository;
     private readonly IOutboxEventRepository _outboxEventRepository;
+    private readonly IPlatformAuditLogRepository _auditLogRepository;
 
     public ProvisionHomeHandler(
         IHomeRepository homeRepository,
-        IOutboxEventRepository outboxEventRepository)
+        IOutboxEventRepository outboxEventRepository,
+        IPlatformAuditLogRepository auditLogRepository)
     {
         _homeRepository = homeRepository;
         _outboxEventRepository = outboxEventRepository;
+        _auditLogRepository = auditLogRepository;
     }
 
     public async Task<Result<ProvisionHomeResponse>> Handle(ProvisionHomeCommand request, CancellationToken cancellationToken)
@@ -42,6 +45,9 @@ public sealed class ProvisionHomeHandler : IRequestHandler<ProvisionHomeCommand,
                 request.PostalCode?.Trim(),
                 request.Timezone?.Trim());
 
+        // Set the technician who provisioned this home
+        homeEntity.SetProvisionedByTechnician(request.TechnicianUserId);
+
         await _homeRepository.AddAsync(homeEntity, cancellationToken);
 
         // Publish HomeProvisioned outbox event
@@ -59,12 +65,23 @@ public sealed class ProvisionHomeHandler : IRequestHandler<ProvisionHomeCommand,
                 city = homeEntity.City,
                 stateProvince = homeEntity.StateProvince,
                 postalCode = homeEntity.PostalCode,
-                provisionedAt = homeEntity.CreatedAt
+                provisionedAt = homeEntity.CreatedAt,
+                provisionedByTechnicianId = request.TechnicianUserId
             }),
             CorrelationId = homeEntity.Id.ToString(),
             CreatedAt = DateTimeOffset.UtcNow
         };
         await _outboxEventRepository.AddAsync(homeProvisionedEvent, cancellationToken);
+
+        // Audit log
+        var auditLog = PlatformAuditLog.Create(
+            request.TechnicianUserId,
+            "HomeProvisioned",
+            "Home",
+            homeEntity.Id,
+            $"{{\"name\":\"{homeEntity.Name}\"}}");
+
+        await _auditLogRepository.AddAsync(auditLog, cancellationToken);
 
         var response = new HomeResponse(
             homeEntity.Id,

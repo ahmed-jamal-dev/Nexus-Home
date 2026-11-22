@@ -55,7 +55,8 @@ public sealed class RegisterHandler : IRequestHandler<RegisterCommand, Result<Re
 
     private async Task<TokenResponse> GenerateTokensAsync(User user, CancellationToken cancellationToken)
     {
-        var accessToken = _tokenService.GenerateAccessToken(user);
+        // New users have no platform roles yet
+        var accessToken = _tokenService.GenerateAccessToken(user, [], [], user.PlatformRolesVersion);
         var (refreshTokenPlain, refreshTokenHash) = _tokenService.GenerateRefreshToken();
 
         var refreshToken = new RefreshToken(

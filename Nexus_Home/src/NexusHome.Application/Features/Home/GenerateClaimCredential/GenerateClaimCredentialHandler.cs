@@ -18,17 +18,23 @@ public sealed class GenerateClaimCredentialHandler : IRequestHandler<GenerateCla
     private readonly IClaimCredentialRepository _claimCredentialRepository;
     private readonly ITokenService _tokenService;
     private readonly IOutboxEventRepository _outboxEventRepository;
+    private readonly IPlatformAuditLogRepository _auditLogRepository;
+    private readonly IUserPlatformRoleRepository _userPlatformRoleRepository;
 
     public GenerateClaimCredentialHandler(
         IHomeRepository homeRepository,
         IClaimCredentialRepository claimCredentialRepository,
         ITokenService tokenService,
-        IOutboxEventRepository outboxEventRepository)
+        IOutboxEventRepository outboxEventRepository,
+        IPlatformAuditLogRepository auditLogRepository,
+        IUserPlatformRoleRepository userPlatformRoleRepository)
     {
         _homeRepository = homeRepository;
         _claimCredentialRepository = claimCredentialRepository;
         _tokenService = tokenService;
         _outboxEventRepository = outboxEventRepository;
+        _auditLogRepository = auditLogRepository;
+        _userPlatformRoleRepository = userPlatformRoleRepository;
     }
 
     public async Task<Result<GenerateClaimCredentialResponse>> Handle(GenerateClaimCredentialCommand request, CancellationToken cancellationToken)
@@ -38,6 +44,15 @@ public sealed class GenerateClaimCredentialHandler : IRequestHandler<GenerateCla
         if (homeEntity == null)
         {
             return Errors.Home.HomeNotFound;
+        }
+
+        // Verify technician scoping: technician must be provisionedByTechnicianId for this home
+        // or have PlatformAdmin/SuperAdmin role
+        var isPlatformAdmin = await _userPlatformRoleRepository.HasPlatformAdminOrHigherAsync(request.TechnicianUserId, cancellationToken);
+
+        if (!isPlatformAdmin && homeEntity.ProvisionedByTechnicianId != request.TechnicianUserId)
+        {
+            return Errors.Home.ProvisioningForbidden;
         }
 
         // Check if home already has an active owner
@@ -81,12 +96,23 @@ public sealed class GenerateClaimCredentialHandler : IRequestHandler<GenerateCla
                 homeId = request.HomeId,
                 credentialId = claimCredential.Id,
                 expiresAt = expiresAt,
-                generatedAt = DateTimeOffset.UtcNow
+                generatedAt = DateTimeOffset.UtcNow,
+                generatedByTechnicianId = request.TechnicianUserId
             }),
             CorrelationId = request.HomeId.ToString(),
             CreatedAt = DateTimeOffset.UtcNow
         };
         await _outboxEventRepository.AddAsync(credentialGeneratedEvent, cancellationToken);
+
+        // Audit log
+        var auditLog = PlatformAuditLog.Create(
+            request.TechnicianUserId,
+            "ClaimCredentialGenerated",
+            "Home",
+            request.HomeId,
+            $"{{\"homeId\":\"{request.HomeId}\"}}");
+
+        await _auditLogRepository.AddAsync(auditLog, cancellationToken);
 
         return Result<GenerateClaimCredentialResponse>.Success(new GenerateClaimCredentialResponse(
             plainCredential,

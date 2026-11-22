@@ -13,19 +13,30 @@ public sealed class RefreshTokenHandler : IRequestHandler<RefreshTokenCommand, R
 {
     private readonly IRefreshTokenRepository _refreshTokenRepository;
     private readonly ITokenService _tokenService;
+    private readonly IUserPlatformRoleRepository _userPlatformRoleRepository;
 
     public RefreshTokenHandler(
         IRefreshTokenRepository refreshTokenRepository,
-        ITokenService tokenService)
+        ITokenService tokenService,
+        IUserPlatformRoleRepository userPlatformRoleRepository)
     {
         _refreshTokenRepository = refreshTokenRepository;
         _tokenService = tokenService;
+        _userPlatformRoleRepository = userPlatformRoleRepository;
     }
 
     public async Task<Result<RefreshTokenResponse>> Handle(RefreshTokenCommand request, CancellationToken cancellationToken)
     {
         // Hash the provided refresh token
-        var tokenHash = HashToken(request.RefreshToken);
+        string tokenHash;
+        try
+        {
+            tokenHash = HashToken(request.RefreshToken);
+        }
+        catch (FormatException)
+        {
+            return Auth.InvalidRefreshToken;
+        }
 
         // Find and validate refresh token
         var refreshToken = await _refreshTokenRepository.GetByTokenHashAsync(tokenHash, cancellationToken);
@@ -66,8 +77,17 @@ public sealed class RefreshTokenHandler : IRequestHandler<RefreshTokenCommand, R
         await _refreshTokenRepository.UpdateAsync(refreshToken, cancellationToken);
         await _refreshTokenRepository.AddAsync(newRefreshToken, cancellationToken);
 
-        // Generate new access token
-        var accessToken = _tokenService.GenerateAccessToken(user);
+        // Get user's platform roles
+        var userPlatformRoles = await _userPlatformRoleRepository.GetByUserIdWithRolesAsync(user.Id, cancellationToken);
+        var activeRoles = userPlatformRoles.Where(upr => upr.IsValid()).ToList();
+
+        var roleKeys = activeRoles.Select(upr => upr.PlatformRole.Key).Distinct().ToList();
+        var roleScopes = activeRoles
+            .Select(upr => (upr.PlatformRole.Key, upr.ScopeId, upr.ScopeType))
+            .ToList();
+
+        // Generate new access token with current roles
+        var accessToken = _tokenService.GenerateAccessToken(user, roleKeys, roleScopes, user.PlatformRolesVersion);
 
         return Result<RefreshTokenResponse>.Success(new RefreshTokenResponse(
             new TokenResponse(

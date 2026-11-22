@@ -7,6 +7,7 @@ using NexusHome.Application.Common;
 /// Command to provision a new home (internal/trusted operation).
 /// </summary>
 public sealed record ProvisionHomeCommand(
+    Guid TechnicianUserId,
     string Name,
     string? AddressLine1 = null,
     string? AddressLine2 = null,

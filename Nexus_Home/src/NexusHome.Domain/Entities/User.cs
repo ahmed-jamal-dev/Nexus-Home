@@ -62,6 +62,17 @@ public class User : Entity
     /// </summary>
     public Settings? Settings { get; private set; }
 
+    /// <summary>
+    /// Version for platform roles cache invalidation (incremented on role changes).
+    /// Used in JWT prv claim for token invalidation.
+    /// </summary>
+    public int PlatformRolesVersion { get; private set; } = 1;
+
+    /// <summary>
+    /// Platform-level role assignments for this user.
+    /// </summary>
+    public ICollection<UserPlatformRole> UserPlatformRoles { get; private set; } = new List<UserPlatformRole>();
+
     protected User() { }
 
     public User(Guid id, string email, string passwordHash, string fullName)
@@ -130,5 +141,14 @@ public class User : Entity
         EmailVerified = false;
         IsActive = false;
         Delete(); // Sets DeletedAt
+    }
+
+    /// <summary>
+    /// Increments the platform roles version for token invalidation.
+    /// </summary>
+    public void IncrementPlatformRolesVersion()
+    {
+        PlatformRolesVersion++;
+        Touch();
     }
 }

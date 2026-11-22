@@ -38,15 +38,17 @@ public sealed class ClaimCredentialRepository : IClaimCredentialRepository
     {
         // Execute raw SQL with FOR UPDATE to acquire row-level lock
         // This prevents concurrent claim attempts on the same home
+        // Note: PostgreSQL column names - EF Core maps PascalCase properties to quoted PascalCase columns,
+        // but some columns (created_at, expires_at, etc.) are explicitly configured as snake_case
         var sql = @"
-            SELECT id, home_id, invitee_email, role, token, expires_at, is_accepted,
-                   invited_by_user_id, created_at, updated_at, deleted_at
+            SELECT ""Id"", ""HomeId"", invitee_email, ""Role"", ""Token"", expires_at, is_accepted,
+                   invited_by_user_id, created_at, updated_at, ""DeletedAt""
             FROM invitations
-            WHERE home_id = @homeId
-              AND role = 'Owner'
+            WHERE ""HomeId"" = @homeId
+              AND ""Role"" = 'Owner'
               AND invitee_email IS NULL
               AND is_accepted = false
-              AND deleted_at IS NULL
+              AND ""DeletedAt"" IS NULL
             ORDER BY created_at DESC
             LIMIT 1
             FOR UPDATE";

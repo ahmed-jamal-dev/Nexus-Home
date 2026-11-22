@@ -89,11 +89,22 @@ public static class HomeEndpoints
     }
 
     private static async Task<IResult> ProvisionHomeAsync(
+        HttpContext context,
         [FromBody] ProvisionHomeRequest request,
         IMediator mediator,
         CancellationToken cancellationToken)
     {
+        // Get user ID from JWT claims
+        var userIdClaim = context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)
+            ?? context.User.FindFirst("sub");
+
+        if (userIdClaim == null || !Guid.TryParse(userIdClaim.Value, out var userId))
+        {
+            return Results.Unauthorized();
+        }
+
         var command = new ProvisionHomeCommand(
+            userId,
             request.Name,
             request.AddressLine1,
             request.AddressLine2,
@@ -110,11 +121,21 @@ public static class HomeEndpoints
     }
 
     private static async Task<IResult> GenerateClaimCredentialAsync(
+        HttpContext context,
         Guid homeId,
         IMediator mediator,
         CancellationToken cancellationToken)
     {
-        var command = new GenerateClaimCredentialCommand(homeId);
+        // Get user ID from JWT claims
+        var userIdClaim = context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)
+            ?? context.User.FindFirst("sub");
+
+        if (userIdClaim == null || !Guid.TryParse(userIdClaim.Value, out var userId))
+        {
+            return Results.Unauthorized();
+        }
+
+        var command = new GenerateClaimCredentialCommand(userId, homeId);
         var result = await mediator.Send(command, cancellationToken);
 
         return result.IsSuccess
@@ -123,11 +144,21 @@ public static class HomeEndpoints
     }
 
     private static async Task<IResult> GetClaimCredentialAsync(
+        HttpContext context,
         Guid homeId,
         IMediator mediator,
         CancellationToken cancellationToken)
     {
-        var query = new GetClaimCredentialQuery(homeId);
+        // Get user ID from JWT claims
+        var userIdClaim = context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)
+            ?? context.User.FindFirst("sub");
+
+        if (userIdClaim == null || !Guid.TryParse(userIdClaim.Value, out var userId))
+        {
+            return Results.Unauthorized();
+        }
+
+        var query = new GetClaimCredentialQuery(userId, homeId);
         var result = await mediator.Send(query, cancellationToken);
 
         return result.IsSuccess
@@ -136,11 +167,21 @@ public static class HomeEndpoints
     }
 
     private static async Task<IResult> RevokeClaimCredentialAsync(
+        HttpContext context,
         Guid homeId,
         IMediator mediator,
         CancellationToken cancellationToken)
     {
-        var command = new RevokeClaimCredentialCommand(homeId);
+        // Get user ID from JWT claims
+        var userIdClaim = context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)
+            ?? context.User.FindFirst("sub");
+
+        if (userIdClaim == null || !Guid.TryParse(userIdClaim.Value, out var userId))
+        {
+            return Results.Unauthorized();
+        }
+
+        var command = new RevokeClaimCredentialCommand(userId, homeId);
         var result = await mediator.Send(command, cancellationToken);
 
         return result.IsSuccess

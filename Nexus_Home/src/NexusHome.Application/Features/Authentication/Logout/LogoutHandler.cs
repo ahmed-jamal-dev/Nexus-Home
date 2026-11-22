@@ -20,7 +20,15 @@ public sealed class LogoutHandler : IRequestHandler<LogoutCommand, Result<Logout
     public async Task<Result<LogoutResponse>> Handle(LogoutCommand request, CancellationToken cancellationToken)
     {
         // Hash the provided refresh token
-        var tokenHash = HashToken(request.RefreshToken);
+        string tokenHash;
+        try
+        {
+            tokenHash = HashToken(request.RefreshToken);
+        }
+        catch (FormatException)
+        {
+            return Auth.InvalidRefreshToken;
+        }
 
         // Find and revoke the token
         var token = await _refreshTokenRepository.GetByTokenHashAsync(tokenHash, cancellationToken);

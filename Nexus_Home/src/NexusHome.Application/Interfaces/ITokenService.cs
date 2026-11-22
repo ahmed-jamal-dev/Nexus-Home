@@ -9,9 +9,9 @@ using NexusHome.Domain.Entities;
 public interface ITokenService
 {
     /// <summary>
-    /// Generates an access token for the user.
+    /// Generates an access token for the user with platform roles.
     /// </summary>
-    string GenerateAccessToken(User user);
+    string GenerateAccessToken(User user, IEnumerable<string> roleKeys, IEnumerable<(string RoleKey, Guid? ScopeId, string? ScopeType)> roleScopes, int platformRolesVersion);
 
     /// <summary>
     /// Generates a refresh token and returns the plaintext token and its hash.
