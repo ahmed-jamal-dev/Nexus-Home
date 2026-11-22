@@ -170,6 +170,15 @@ public class Device : Entity
     }
 
     /// <summary>
+    /// Updates metadata (JSONB).
+    /// </summary>
+    public void UpdateMetadata(Dictionary<string, object> metadata)
+    {
+        Metadata = metadata ?? new Dictionary<string, object>();
+        Touch();
+    }
+
+    /// <summary>
     /// Updates the reported state from a trusted device message.
     /// Only trusted device reports update these fields; requested command values do not.
     /// </summary>

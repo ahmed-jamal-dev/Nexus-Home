@@ -8,6 +8,7 @@ using NexusHome.Application.Interfaces;
 using NexusHome.Infrastructure.Authentication;
 using NexusHome.Infrastructure.Data;
 using NexusHome.Infrastructure.Repositories;
+using Npgsql;
 
 /// <summary>
 /// Extension methods for registering infrastructure services.
@@ -18,6 +19,10 @@ public static class DependencyInjection
         this IServiceCollection services,
         IConfiguration configuration)
     {
+        // Enable dynamic JSON serialization for Dictionary<string, object> to JSONB columns
+        // This must be called before any DbContext is created
+        NpgsqlConnection.GlobalTypeMapper.EnableDynamicJson();
+
         var connectionString = configuration.GetConnectionString("NexusHome")
             ?? throw new InvalidOperationException("Connection string 'NexusHome' not found.");
 
@@ -61,6 +66,7 @@ public static class DependencyInjection
         services.AddScoped<IMembershipRepository, MembershipRepository>();
         services.AddScoped<IOutboxEventRepository, OutboxEventRepository>();
         services.AddScoped<IRoomRepository, RoomRepository>();
+        services.AddScoped<IDeviceRepository, DeviceRepository>();
         services.AddScoped<IPlatformRoleRepository, PlatformRoleRepository>();
         services.AddScoped<IUserPlatformRoleRepository, UserPlatformRoleRepository>();
         services.AddScoped<IPlatformAuditLogRepository, PlatformAuditLogRepository>();

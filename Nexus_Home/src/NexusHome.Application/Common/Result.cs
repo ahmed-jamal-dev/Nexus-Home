@@ -197,6 +197,16 @@ public static class Errors
         public static readonly Error DuplicateName = new("ROOM.DUPLICATE_NAME", "A room with this name already exists in the home");
     }
 
+    public static class DeviceErrors
+    {
+        public static readonly Error DeviceNotFound = new("DEVICE.NOT_FOUND", "Device not found");
+        public static readonly Error DeviceRemoved = new("DEVICE.REMOVED", "Device has been removed");
+        public static readonly Error DuplicateExternalId = new("DEVICE.DUPLICATE_EXTERNAL_ID", "A device with this external ID already exists");
+        public static readonly Error InvalidRoomAssignment = new("DEVICE.INVALID_ROOM_ASSIGNMENT", "Room does not exist or belongs to a different home");
+        public static readonly Error RoomDeleted = new("DEVICE.ROOM_DELETED", "Cannot assign to a deleted room");
+        public static readonly Error DeviceBelongsToOtherHome = new("DEVICE.BELONGS_TO_OTHER_HOME", "Device does not belong to this home");
+    }
+
     public static class Platform
     {
         public static readonly Error UserNotFound = new("PLATFORM.USER_NOT_FOUND", "User not found");

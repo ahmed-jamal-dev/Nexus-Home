@@ -358,6 +358,7 @@ public class Program
         app.MapAuthenticationEndpoints();
         app.MapHomeEndpoints();
         app.MapRoomEndpoints();
+        app.MapDeviceEndpoints();
         app.MapPlatformEndpoints();
 
         app.UseHttpsRedirection();
