@@ -22,9 +22,10 @@ public class NexusHomeDbContext : DbContext
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
         base.OnConfiguring(optionsBuilder);
-        // Suppress warning 10625 about DeviceId1/DeviceId2 shadow properties created by convention
+        // Suppress warning 10625 about DeviceId1/DeviceId2/DeviceId3 shadow properties created by convention
         // when AIActionAudit has both DeviceId (direct FK) and CommandId (FK to DeviceCommand which has Device navigation)
-        // This is a known EF Core behavior - the shadow property is not persisted to database
+        // This is a known EF Core behavior - the shadow properties are not persisted to database
+        // They are ignored in OnModelCreating to exclude them from the model
         optionsBuilder.ConfigureWarnings(w => w.Ignore(new EventId(10625, "ShadowPropertyCreatedForRelationship")));
     }
 
@@ -116,103 +117,105 @@ public class NexusHomeDbContext : DbContext
         var entries = ChangeTracker.Entries()
             .Where(e => e.State == EntityState.Added || e.State == EntityState.Modified);
 
+        var now = DateTimeOffset.UtcNow;
+
         foreach (var entry in entries)
         {
             if (entry.Entity is User u)
             {
-                u.UpdatedAt = DateTime.UtcNow;
+                u.UpdatedAt = now;
                 if (entry.State == EntityState.Added)
-                    u.CreatedAt = DateTime.UtcNow;
+                    u.CreatedAt = now;
             }
             else if (entry.Entity is Home h)
             {
-                h.UpdatedAt = DateTime.UtcNow;
+                h.UpdatedAt = now;
                 if (entry.State == EntityState.Added)
-                    h.CreatedAt = DateTime.UtcNow;
+                    h.CreatedAt = now;
             }
             else if (entry.Entity is Membership m)
             {
-                m.UpdatedAt = DateTime.UtcNow;
+                m.UpdatedAt = now;
                 if (entry.State == EntityState.Added)
-                    m.CreatedAt = DateTime.UtcNow;
+                    m.CreatedAt = now;
             }
             else if (entry.Entity is Room r)
             {
-                r.UpdatedAt = DateTime.UtcNow;
+                r.UpdatedAt = now;
                 if (entry.State == EntityState.Added)
-                    r.CreatedAt = DateTime.UtcNow;
+                    r.CreatedAt = now;
             }
             else if (entry.Entity is Device d)
             {
-                d.UpdatedAt = DateTime.UtcNow;
+                d.UpdatedAt = now;
                 if (entry.State == EntityState.Added)
-                    d.CreatedAt = DateTime.UtcNow;
+                    d.CreatedAt = now;
             }
             else if (entry.Entity is Invitation i)
             {
-                i.UpdatedAt = DateTime.UtcNow;
+                i.UpdatedAt = now;
                 if (entry.State == EntityState.Added)
-                    i.CreatedAt = DateTime.UtcNow;
+                    i.CreatedAt = now;
             }
             else if (entry.Entity is Permission p)
             {
-                p.UpdatedAt = DateTime.UtcNow;
+                p.UpdatedAt = now;
                 if (entry.State == EntityState.Added)
-                    p.CreatedAt = DateTime.UtcNow;
+                    p.CreatedAt = now;
             }
             else if (entry.Entity is Settings s)
             {
-                s.UpdatedAt = DateTime.UtcNow;
+                s.UpdatedAt = now;
                 if (entry.State == EntityState.Added)
-                    s.CreatedAt = DateTime.UtcNow;
+                    s.CreatedAt = now;
             }
             else if (entry.Entity is AIActionAudit a)
             {
                 // AIActionAudit is immutable - no UpdatedAt
                 if (entry.State == EntityState.Added)
-                    a.CreatedAt = DateTime.UtcNow;
+                    a.CreatedAt = now;
             }
             else if (entry.Entity is DeviceCommand dc)
             {
-                dc.UpdatedAt = DateTime.UtcNow;
+                dc.UpdatedAt = now;
                 if (entry.State == EntityState.Added)
-                    dc.CreatedAt = DateTime.UtcNow;
+                    dc.CreatedAt = now;
             }
             else if (entry.Entity is OutboxEvent o)
             {
                 // OutboxEvent is immutable - no UpdatedAt
                 if (entry.State == EntityState.Added)
-                    o.CreatedAt = DateTime.UtcNow;
+                    o.CreatedAt = now;
             }
             else if (entry.Entity is TelemetryDedupLedger t)
             {
                 // TelemetryDedupLedger is immutable - no UpdatedAt
                 if (entry.State == EntityState.Added)
-                    t.ReceivedAt = DateTime.UtcNow;
+                    t.ReceivedAt = now;
             }
             else if (entry.Entity is RefreshToken rt)
             {
-                rt.UpdatedAt = DateTime.UtcNow;
+                rt.UpdatedAt = now;
                 if (entry.State == EntityState.Added)
-                    rt.CreatedAt = DateTime.UtcNow;
+                    rt.CreatedAt = now;
             }
             else if (entry.Entity is PlatformRole pr)
             {
-                pr.UpdatedAt = DateTime.UtcNow;
+                pr.UpdatedAt = now;
                 if (entry.State == EntityState.Added)
-                    pr.CreatedAt = DateTime.UtcNow;
+                    pr.CreatedAt = now;
             }
             else if (entry.Entity is UserPlatformRole upr)
             {
-                upr.UpdatedAt = DateTime.UtcNow;
+                upr.UpdatedAt = now;
                 if (entry.State == EntityState.Added)
-                    upr.CreatedAt = DateTime.UtcNow;
+                    upr.CreatedAt = now;
             }
             else if (entry.Entity is PlatformAuditLog pal)
             {
                 // PlatformAuditLog is immutable - no UpdatedAt
                 if (entry.State == EntityState.Added)
-                    pal.CreatedAt = DateTime.UtcNow;
+                    pal.CreatedAt = now;
             }
         }
     }

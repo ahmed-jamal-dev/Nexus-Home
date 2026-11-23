@@ -2,6 +2,7 @@ namespace NexusHome.Application.Features.Home.Device.AddDevice;
 
 using MediatR;
 using NexusHome.Application.Common;
+using NexusHome.Application.Common.Authorization;
 using NexusHome.Application.Interfaces;
 using NexusHome.Domain.Entities;
 using NexusHome.Domain.Events;
@@ -15,36 +16,26 @@ using static NexusHome.Application.Common.Errors.DeviceErrors;
 public sealed class AddDeviceHandler : IRequestHandler<AddDeviceCommand, Result<AddDeviceResponse>>
 {
     private readonly IDeviceRepository _deviceRepository;
-    private readonly IHomeRepository _homeRepository;
-    private readonly IMembershipRepository _membershipRepository;
+    private readonly HomeAuthorizationService _homeAuthorizationService;
     private readonly IOutboxEventRepository _outboxEventRepository;
 
     public AddDeviceHandler(
         IDeviceRepository deviceRepository,
-        IHomeRepository homeRepository,
-        IMembershipRepository membershipRepository,
+        HomeAuthorizationService homeAuthorizationService,
         IOutboxEventRepository outboxEventRepository)
     {
         _deviceRepository = deviceRepository;
-        _homeRepository = homeRepository;
-        _membershipRepository = membershipRepository;
+        _homeAuthorizationService = homeAuthorizationService;
         _outboxEventRepository = outboxEventRepository;
     }
 
     public async Task<Result<AddDeviceResponse>> Handle(AddDeviceCommand request, CancellationToken cancellationToken)
     {
-        // Verify home exists and is not deleted
-        var home = await _homeRepository.GetByIdAsync(request.HomeId, cancellationToken);
-        if (home == null)
+        // Verify home exists and user is authorized (member, provisioner, or PlatformAdmin/SuperAdmin)
+        var homeResult = await _homeAuthorizationService.TryAuthorizeHomeAsync(request.HomeId, request.UserId, cancellationToken);
+        if (homeResult.IsFailure)
         {
-            return Errors.Home.HomeNotFound;
-        }
-
-        // Check membership - must be Owner or Member
-        var isMember = await _membershipRepository.IsActiveMemberAsync(request.UserId, request.HomeId, cancellationToken);
-        if (!isMember)
-        {
-            return Errors.Home.HomeNotFound; // Don't leak home existence
+            return Result<AddDeviceResponse>.Failure(homeResult.Error);
         }
 
         // Check for duplicate ExternalId
@@ -69,21 +60,7 @@ public sealed class AddDeviceHandler : IRequestHandler<AddDeviceCommand, Result<
 
         if (request.Metadata != null)
         {
-            // Metadata is updated via UpdateMetadata, but we can set it directly through the constructor or a method
-            // The entity doesn't have a direct UpdateMetadata that takes Dictionary, so we'll use reflection or just set it
-            // Actually, looking at the entity, there's no public setter for Metadata. Let me check...
-            // The entity has UpdateMetadata for name, deviceType, firmwareVersion, manufacturer, model
-            // But not for Capabilities/Metadata directly. However, UpdateCapabilities exists.
-            // For Metadata, we need to check if there's a way to set it. The entity has private setters.
-            // Since the entity is in the same assembly, we can't access private setters from here.
-            // But wait - the constructor initializes empty dictionaries. The handler creates the device and then calls UpdateCapabilities.
-            // There's no UpdateMetadata for the Metadata dictionary. This might be an issue.
-            // Actually, looking at the entity again, Metadata has a private setter and is initialized to new Dictionary.
-            // There's no method to update it. This is a gap in the entity.
-            // For now, I'll assume we can't update Metadata via the entity's public API, but we need to check if there's a way.
-            // Looking at the entity, there's only UpdateCapabilities, UpdateMetadata (for name, deviceType, etc.), UpdateReportedState, MarkOnline/Offline/Unknown, AssignToRoom, Remove, Restore.
-            // There's no UpdateMetadata for the Metadata dictionary. This seems like an oversight in the entity.
-            // I'll proceed with what we have and note this limitation.
+            device.UpdateMetadata(request.Metadata);
         }
 
         if (!string.IsNullOrEmpty(request.FirmwareVersion) ||

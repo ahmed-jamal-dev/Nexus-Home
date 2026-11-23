@@ -4,6 +4,7 @@ using MediatR;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using NexusHome.Api.Filters;
 using NexusHome.Application.Features.Home.Device.AddDevice;
 using NexusHome.Application.Features.Home.Device.AssignDeviceToRoom;
 using NexusHome.Application.Features.Home.Device.GetDevice;
@@ -21,7 +22,8 @@ public static class DeviceEndpoints
         var group = app.MapGroup("/api/v1/homes/{homeId:guid}/devices")
             .WithTags("Device Management")
             .WithOpenApi()
-            .RequireAuthorization();
+            .RequireAuthorization()
+            .AddEndpointFilter<PlatformRolesVersionFilter>();
 
         // Create device
         group.MapPost("/", CreateDeviceAsync)

@@ -2,6 +2,7 @@ namespace NexusHome.Application.Features.Home.Device.AssignDeviceToRoom;
 
 using MediatR;
 using NexusHome.Application.Common;
+using NexusHome.Application.Common.Authorization;
 using NexusHome.Application.Interfaces;
 using NexusHome.Domain.Entities;
 using NexusHome.Domain.Events;
@@ -15,39 +16,29 @@ using static NexusHome.Application.Common.Errors.DeviceErrors;
 public sealed class AssignDeviceToRoomHandler : IRequestHandler<AssignDeviceToRoomCommand, Result<AssignDeviceToRoomResponse>>
 {
     private readonly IDeviceRepository _deviceRepository;
-    private readonly IHomeRepository _homeRepository;
     private readonly IRoomRepository _roomRepository;
-    private readonly IMembershipRepository _membershipRepository;
+    private readonly HomeAuthorizationService _homeAuthorizationService;
     private readonly IOutboxEventRepository _outboxEventRepository;
 
     public AssignDeviceToRoomHandler(
         IDeviceRepository deviceRepository,
-        IHomeRepository homeRepository,
         IRoomRepository roomRepository,
-        IMembershipRepository membershipRepository,
+        HomeAuthorizationService homeAuthorizationService,
         IOutboxEventRepository outboxEventRepository)
     {
         _deviceRepository = deviceRepository;
-        _homeRepository = homeRepository;
         _roomRepository = roomRepository;
-        _membershipRepository = membershipRepository;
+        _homeAuthorizationService = homeAuthorizationService;
         _outboxEventRepository = outboxEventRepository;
     }
 
     public async Task<Result<AssignDeviceToRoomResponse>> Handle(AssignDeviceToRoomCommand request, CancellationToken cancellationToken)
     {
-        // Verify home exists and is not deleted
-        var home = await _homeRepository.GetByIdAsync(request.HomeId, cancellationToken);
-        if (home == null)
+        // Verify home exists and user is authorized (member, provisioner, or PlatformAdmin/SuperAdmin)
+        var homeResult = await _homeAuthorizationService.TryAuthorizeHomeAsync(request.HomeId, request.UserId, cancellationToken);
+        if (homeResult.IsFailure)
         {
-            return Errors.Home.HomeNotFound;
-        }
-
-        // Check membership - must be Owner or Member
-        var isMember = await _membershipRepository.IsActiveMemberAsync(request.UserId, request.HomeId, cancellationToken);
-        if (!isMember)
-        {
-            return Errors.Home.HomeNotFound; // Don't leak home existence
+            return Result<AssignDeviceToRoomResponse>.Failure(homeResult.Error);
         }
 
         // Get device with home for authorization check

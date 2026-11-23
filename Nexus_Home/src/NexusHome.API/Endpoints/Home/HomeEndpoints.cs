@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
+using NexusHome.Api.Filters;
 using NexusHome.Application.Features.Home.ClaimHome;
 using NexusHome.Application.Features.Home.GenerateClaimCredential;
 using NexusHome.Application.Features.Home.GetClaimCredential;
@@ -23,7 +24,8 @@ public static class HomeEndpoints
             .WithTags("Home Provisioning")
             .WithOpenApi()
             .RequireAuthorization("HomeProvisioning")
-            .RequireRateLimiting("ProvisioningEndpoint");
+            .RequireRateLimiting("ProvisioningEndpoint")
+            .AddEndpointFilter<PlatformRolesVersionFilter>();
 
         // Provision a new home
         provisioningGroup.MapPost("/provision", ProvisionHomeAsync)
@@ -72,7 +74,8 @@ public static class HomeEndpoints
             .WithTags("Home Ownership")
             .WithOpenApi()
             .RequireAuthorization()
-            .RequireRateLimiting("ClaimEndpoint");
+            .RequireRateLimiting("ClaimEndpoint")
+            .AddEndpointFilter<PlatformRolesVersionFilter>();
 
         claimGroup.MapPost("/claim", ClaimHomeAsync)
             .WithName("ClaimHome")

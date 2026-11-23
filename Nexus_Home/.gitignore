@@ -3,6 +3,12 @@
 .env.local
 .env.*.local
 
+# Configuration with secrets - NEVER commit
+appsettings.*.json
+*.Development.json
+*.Production.json
+*.Staging.json
+
 # Docker
 .docker/
 

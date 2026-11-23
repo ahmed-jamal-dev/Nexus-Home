@@ -2,6 +2,7 @@ namespace NexusHome.Application.Features.Home.Device.GetDevice;
 
 using MediatR;
 using NexusHome.Application.Common;
+using NexusHome.Application.Common.Authorization;
 using NexusHome.Application.Interfaces;
 using NexusHome.Domain.Entities;
 using static NexusHome.Application.Common.Errors;
@@ -13,33 +14,23 @@ using static NexusHome.Application.Common.Errors.DeviceErrors;
 public sealed class GetDeviceHandler : IRequestHandler<GetDeviceQuery, Result<GetDeviceResponse>>
 {
     private readonly IDeviceRepository _deviceRepository;
-    private readonly IHomeRepository _homeRepository;
-    private readonly IMembershipRepository _membershipRepository;
+    private readonly HomeAuthorizationService _homeAuthorizationService;
 
     public GetDeviceHandler(
         IDeviceRepository deviceRepository,
-        IHomeRepository homeRepository,
-        IMembershipRepository membershipRepository)
+        HomeAuthorizationService homeAuthorizationService)
     {
         _deviceRepository = deviceRepository;
-        _homeRepository = homeRepository;
-        _membershipRepository = membershipRepository;
+        _homeAuthorizationService = homeAuthorizationService;
     }
 
     public async Task<Result<GetDeviceResponse>> Handle(GetDeviceQuery request, CancellationToken cancellationToken)
     {
-        // Verify home exists and is not deleted
-        var home = await _homeRepository.GetByIdAsync(request.HomeId, cancellationToken);
-        if (home == null)
+        // Verify home exists and user is authorized (member, provisioner, or PlatformAdmin/SuperAdmin)
+        var homeResult = await _homeAuthorizationService.TryAuthorizeHomeAsync(request.HomeId, request.UserId, cancellationToken);
+        if (homeResult.IsFailure)
         {
-            return Errors.Home.HomeNotFound;
-        }
-
-        // Check membership - must be Owner or Member
-        var isMember = await _membershipRepository.IsActiveMemberAsync(request.UserId, request.HomeId, cancellationToken);
-        if (!isMember)
-        {
-            return Errors.Home.HomeNotFound; // Don't leak home existence
+            return Result<GetDeviceResponse>.Failure(homeResult.Error);
         }
 
         // Get device

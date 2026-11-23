@@ -3,6 +3,7 @@ namespace NexusHome.Application;
 using FluentValidation;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
+using NexusHome.Application.Common.Authorization;
 using NexusHome.Application.Common.Behaviors;
 
 /// <summary>
@@ -21,6 +22,9 @@ public static class DependencyInjection
         // Pipeline behaviors
         services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
         services.AddTransient(typeof(IPipelineBehavior<,>), typeof(LoggingBehavior<,>));
+
+        // Shared authorization services
+        services.AddScoped<HomeAuthorizationService>();
 
         return services;
     }

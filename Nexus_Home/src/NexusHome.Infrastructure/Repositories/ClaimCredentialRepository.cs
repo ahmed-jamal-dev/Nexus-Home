@@ -21,8 +21,8 @@ public sealed class ClaimCredentialRepository : IClaimCredentialRepository
     /// <inheritdoc />
     public async Task<Invitation?> GetPendingForUpdateAsync(Guid homeId, CancellationToken cancellationToken = default)
     {
-        // Use SELECT FOR UPDATE to lock the row for the duration of the transaction
-        // This prevents race conditions when claiming a home
+        // Get the latest pending claim credential for a home (no lock)
+        // Use GetPendingForUpdateWithLockAsync when a lock is needed
         return await _context.Invitations
             .Where(i => i.HomeId == homeId
                 && i.Role == NexusHome.Domain.Enums.Role.Owner
@@ -40,21 +40,23 @@ public sealed class ClaimCredentialRepository : IClaimCredentialRepository
         // This prevents concurrent claim attempts on the same home
         // Note: PostgreSQL column names - EF Core maps PascalCase properties to quoted PascalCase columns,
         // but some columns (created_at, expires_at, etc.) are explicitly configured as snake_case
+        // Use AsNoTracking to avoid EF Core tracking conflicts with subsequent AddAsync calls
         var sql = @"
             SELECT ""Id"", ""HomeId"", invitee_email, ""Role"", ""Token"", expires_at, is_accepted,
-                   invited_by_user_id, created_at, updated_at, ""DeletedAt""
+                   invited_by_user_id, created_at, updated_at, deleted_at
             FROM invitations
             WHERE ""HomeId"" = @homeId
               AND ""Role"" = 'Owner'
               AND invitee_email IS NULL
               AND is_accepted = false
-              AND ""DeletedAt"" IS NULL
+              AND deleted_at IS NULL
             ORDER BY created_at DESC
             LIMIT 1
             FOR UPDATE";
 
         return await _context.Invitations
             .FromSqlRaw(sql, new Npgsql.NpgsqlParameter("@homeId", homeId))
+            .AsNoTracking()
             .FirstOrDefaultAsync(cancellationToken);
     }
 
@@ -94,5 +96,42 @@ public sealed class ClaimCredentialRepository : IClaimCredentialRepository
     {
         _context.Invitations.Update(invitation);
         await _context.SaveChangesAsync(cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public async Task<bool> TryAcquireGenerationLockAsync(Guid homeId, CancellationToken cancellationToken = default)
+    {
+        // Use a hash of the homeId to generate a 64-bit lock key
+        // PostgreSQL advisory locks use int64 keys
+        var lockKey = homeId.GetHashCode();
+
+        // Use raw SQL execution with Npgsql directly to avoid EF Core scalar query issues
+        var sql = "SELECT pg_try_advisory_xact_lock(@lockKey)";
+        var connection = _context.Database.GetDbConnection();
+        await connection.OpenAsync(cancellationToken);
+        try
+        {
+            using var command = connection.CreateCommand();
+            command.CommandText = sql;
+            var parameter = command.CreateParameter();
+            parameter.ParameterName = "@lockKey";
+            parameter.Value = lockKey;
+            command.Parameters.Add(parameter);
+
+            var result = await command.ExecuteScalarAsync(cancellationToken);
+            return result is true or 1;
+        }
+        finally
+        {
+            await connection.CloseAsync();
+        }
+    }
+
+    /// <inheritdoc />
+    public async Task ReleaseGenerationLockAsync(Guid homeId, CancellationToken cancellationToken = default)
+    {
+        // Advisory transaction locks are automatically released at transaction end
+        // This method exists for symmetry and potential future use of session locks
+        await Task.CompletedTask;
     }
 }

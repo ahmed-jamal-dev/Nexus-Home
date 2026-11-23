@@ -103,10 +103,12 @@ public class DeviceConfiguration : IEntityTypeConfiguration<Device>
 
         // Explicitly configure Device -> Commands to prevent convention inference
         // from DeviceCommand.Device navigation, which would create DeviceId1 shadow property on AIActionAudit
+        // Use PropertyAccessMode.Property to hide navigation from convention inference
         builder.HasMany(d => d.Commands)
             .WithOne(dc => dc.Device)
             .HasForeignKey(dc => dc.DeviceId)
-            .OnDelete(DeleteBehavior.Restrict);
+            .OnDelete(DeleteBehavior.Restrict)
+            .Metadata.PrincipalToDependent.SetPropertyAccessMode(PropertyAccessMode.Property);
 
         // Globally unique external_id
         builder.HasIndex(d => d.ExternalId)

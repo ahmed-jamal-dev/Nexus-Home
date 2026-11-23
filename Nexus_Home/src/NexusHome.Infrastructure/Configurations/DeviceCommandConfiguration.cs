@@ -107,6 +107,12 @@ public class DeviceCommandConfiguration : IEntityTypeConfiguration<DeviceCommand
         // FK to devices - RESTRICT on delete
         // Configured in DeviceConfiguration (Device -> Commands) to prevent inference chain
         // that creates DeviceId1 shadow property on AIActionAudit
+        // Use PropertyAccessMode.Property to hide Device navigation from convention inference
+        builder.HasOne(dc => dc.Device)
+            .WithMany(d => d.Commands)
+            .HasForeignKey(dc => dc.DeviceId)
+            .OnDelete(DeleteBehavior.Restrict)
+            .Metadata.PrincipalToDependent.SetPropertyAccessMode(PropertyAccessMode.Property);
 
         // FK to users (requester) - CASCADE on delete per D-18
         builder.HasOne(dc => dc.RequestedByUser)

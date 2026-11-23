@@ -4,6 +4,7 @@ using MediatR;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using NexusHome.Api.Filters;
 using NexusHome.Application.Features.Home.Room.CreateRoom;
 using NexusHome.Application.Features.Home.Room.DeleteRoom;
 using NexusHome.Application.Features.Home.Room.GetRoom;
@@ -20,7 +21,8 @@ public static class RoomEndpoints
         var group = app.MapGroup("/api/v1/homes/{homeId:guid}/rooms")
             .WithTags("Room Management")
             .WithOpenApi()
-            .RequireAuthorization();
+            .RequireAuthorization()
+            .AddEndpointFilter<PlatformRolesVersionFilter>();
 
         // Create room
         group.MapPost("/", CreateRoomAsync)

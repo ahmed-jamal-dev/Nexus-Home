@@ -52,11 +52,27 @@ public class Program
         var jwtSettings = builder.Configuration.GetSection("Jwt").Get<JwtSettings>()
             ?? throw new InvalidOperationException("JWT settings not configured");
 
-        // DIAGNOSTIC: Log JWT settings
+        // Validate SigningKey is present and meets minimum requirements
+        if (string.IsNullOrWhiteSpace(jwtSettings.SigningKey))
+        {
+            throw new InvalidOperationException(
+                "JWT SigningKey is not configured. " +
+                "Set it via environment variable 'Jwt__SigningKey' or user secrets. " +
+                "Key must be at least 32 characters for HMAC-SHA256.");
+        }
+
+        if (jwtSettings.SigningKey.Length < 32)
+        {
+            throw new InvalidOperationException(
+                $"JWT SigningKey is too short ({jwtSettings.SigningKey.Length} characters). " +
+                "Minimum 32 characters required for HMAC-SHA256 security.");
+        }
+
+        // DIAGNOSTIC: Log JWT settings (without exposing the key)
         var loggerFactory = LoggerFactory.Create(logging => logging.AddConsole());
         var diagLogger = loggerFactory.CreateLogger("JwtDiagnostic");
         diagLogger.LogInformation("JWT Settings loaded: Issuer={Issuer}, Audience={Audience}, SigningKeyLength={KeyLength}",
-            jwtSettings.Issuer, jwtSettings.Audience, jwtSettings.SigningKey?.Length ?? 0);
+            jwtSettings.Issuer, jwtSettings.Audience, jwtSettings.SigningKey.Length);
 
         builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             .AddJwtBearer(options =>

@@ -57,7 +57,7 @@ public sealed class DeviceRepository : IDeviceRepository
     public async Task<List<Device>> ListAsync(Guid homeId, Guid? roomId, string? cursor, int limit, CancellationToken cancellationToken = default)
     {
         var query = _context.Devices
-            .Where(d => d.HomeId == homeId);
+            .Where(d => d.HomeId == homeId && d.RemovedAt == null);
 
         if (roomId.HasValue)
         {

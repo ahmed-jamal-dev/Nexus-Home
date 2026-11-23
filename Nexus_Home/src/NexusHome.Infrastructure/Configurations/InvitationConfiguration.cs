@@ -59,6 +59,9 @@ public class InvitationConfiguration : IEntityTypeConfiguration<Invitation>
             .HasColumnName("updated_at")
             .HasDefaultValueSql("now()");
 
+        builder.Property(i => i.DeletedAt)
+            .HasColumnName("deleted_at");
+
         // CHECK constraint: claim credentials must have role='Owner' and no invitee_email
         // Regular invitations have invitee_email set
         // Note: Role column is "Role" (capital R) in the database, enum values are capitalized
@@ -94,8 +97,15 @@ public class InvitationConfiguration : IEntityTypeConfiguration<Invitation>
         // Using database column names for PostgreSQL partial index filter
         // Note: Role column is "Role" (capital R), enum values are capitalized ('Owner')
         builder.HasIndex(i => i.HomeId)
-            .HasFilter("is_accepted = false AND \"Role\" = 'Owner' AND invitee_email IS NULL AND \"DeletedAt\" IS NULL")
+            .HasFilter("is_accepted = false AND \"Role\" = 'Owner' AND invitee_email IS NULL AND deleted_at IS NULL")
             .HasDatabaseName("idx_invitations_home_pending_claim");
+
+        // Unique partial index: at most one pending claim credential per home
+        // This prevents multiple concurrent claim credentials at the database level
+        builder.HasIndex(i => i.HomeId)
+            .IsUnique()
+            .HasFilter("is_accepted = false AND \"Role\" = 'Owner' AND invitee_email IS NULL AND deleted_at IS NULL")
+            .HasDatabaseName("uk_invitations_home_pending_claim_credential");
 
         // Indexes
         builder.HasIndex(i => i.InviteeEmail)

@@ -501,7 +501,8 @@ namespace NexusHome.Infrastructure.Data.Migrations
                         .HasDefaultValueSql("now()");
 
                     b.Property<DateTimeOffset?>("DeletedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
 
                     b.Property<DateTimeOffset>("ExpiresAt")
                         .HasColumnType("timestamp with time zone")
@@ -547,8 +548,9 @@ namespace NexusHome.Infrastructure.Data.Migrations
                         .HasDatabaseName("idx_invitations_expires_at");
 
                     b.HasIndex("HomeId")
-                        .HasDatabaseName("idx_invitations_home_pending_claim")
-                        .HasFilter("is_accepted = false AND \"Role\" = 'Owner' AND invitee_email IS NULL AND \"DeletedAt\" IS NULL");
+                        .IsUnique()
+                        .HasDatabaseName("uk_invitations_home_pending_claim_credential")
+                        .HasFilter("is_accepted = false AND \"Role\" = 'Owner' AND invitee_email IS NULL AND deleted_at IS NULL");
 
                     b.HasIndex("InvitedByUserId");
 

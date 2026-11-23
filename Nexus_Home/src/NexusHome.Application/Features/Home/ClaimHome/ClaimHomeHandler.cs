@@ -56,7 +56,9 @@ public sealed class ClaimHomeHandler : IRequestHandler<ClaimHomeCommand, Result<
             // Credential was concurrently claimed or revoked
             return Errors.Home.ClaimCredentialAlreadyUsed;
         }
-        credential = lockedCredential;
+        // Keep the original tracked 'credential' entity for the update.
+        // 'lockedCredential' was loaded with AsNoTracking and is a different instance with the same key.
+        // Using it for UpdateAsync would cause "another instance with the same key value is already being tracked".
 
         // Validate credential state
         if (credential.IsAccepted)

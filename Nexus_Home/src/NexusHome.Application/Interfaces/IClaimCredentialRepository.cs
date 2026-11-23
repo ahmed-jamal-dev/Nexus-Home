@@ -37,4 +37,16 @@ public interface IClaimCredentialRepository
     /// Updates an existing claim credential.
     /// </summary>
     Task UpdateAsync(Invitation invitation, CancellationToken ct = default);
+
+    /// <summary>
+    /// Attempts to acquire a PostgreSQL advisory transaction lock for the given home ID.
+    /// This prevents concurrent credential generation for the same home.
+    /// Returns true if lock acquired, false otherwise.
+    /// </summary>
+    Task<bool> TryAcquireGenerationLockAsync(Guid homeId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Releases the advisory lock (no-op for transaction-level locks, which auto-release).
+    /// </summary>
+    Task ReleaseGenerationLockAsync(Guid homeId, CancellationToken ct = default);
 }

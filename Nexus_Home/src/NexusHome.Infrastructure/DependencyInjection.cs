@@ -8,6 +8,7 @@ using NexusHome.Application.Interfaces;
 using NexusHome.Infrastructure.Authentication;
 using NexusHome.Infrastructure.Data;
 using NexusHome.Infrastructure.Repositories;
+using NexusHome.Infrastructure.Services;
 using Npgsql;
 
 /// <summary>
@@ -54,6 +55,9 @@ public static class DependencyInjection
         services.Configure<ClaimCredentialSettings>(options => configuration.GetSection("ClaimCredential").Bind(options));
         services.AddSingleton(sp => sp.GetRequiredService<IOptions<ClaimCredentialSettings>>().Value);
 
+        // Register outbox processor options
+        services.Configure<OutboxProcessorOptions>(options => configuration.GetSection("OutboxProcessor").Bind(options));
+
         // Register authentication services
         services.AddScoped<IPasswordHasher, PasswordHasher>();
         services.AddScoped<ITokenService, TokenService>();
@@ -70,6 +74,9 @@ public static class DependencyInjection
         services.AddScoped<IPlatformRoleRepository, PlatformRoleRepository>();
         services.AddScoped<IUserPlatformRoleRepository, UserPlatformRoleRepository>();
         services.AddScoped<IPlatformAuditLogRepository, PlatformAuditLogRepository>();
+
+        // Register outbox processor as hosted service
+        services.AddHostedService<OutboxProcessor>();
 
         return services;
     }

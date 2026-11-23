@@ -61,62 +61,76 @@ public sealed class GenerateClaimCredentialHandler : IRequestHandler<GenerateCla
             return Errors.Home.HomeAlreadyClaimed;
         }
 
-        // Check if a valid claim credential already exists
-        if (await _claimCredentialRepository.ExistsValidCredentialAsync(request.HomeId, cancellationToken))
+        // Acquire advisory lock to prevent concurrent credential generation for the same home
+        // This protects the check-then-insert race condition when no credential exists yet
+        var lockAcquired = await _claimCredentialRepository.TryAcquireGenerationLockAsync(request.HomeId, cancellationToken);
+        if (!lockAcquired)
         {
-            // Return existing credential info (without plaintext)
-            var existing = await _claimCredentialRepository.GetPendingForUpdateAsync(request.HomeId, cancellationToken);
+            return Result<GenerateClaimCredentialResponse>.Failure(Errors.Home.ClaimCredentialExists);
+        }
+
+        try
+        {
+            // Check if a valid claim credential already exists (with row lock)
+            var existing = await _claimCredentialRepository.GetPendingForUpdateWithLockAsync(request.HomeId, cancellationToken);
+
             if (existing != null && existing.IsValid)
             {
+                // Valid credential exists - return it (plaintext not returned again)
                 return Result<GenerateClaimCredentialResponse>.Success(new GenerateClaimCredentialResponse(
-                    Credential: "***EXISTING_CREDENTIAL***", // Plaintext not returned again
+                    Credential: "***EXISTING_CREDENTIAL***",
                     ExpiresAt: existing.ExpiresAt,
                     HomeId: request.HomeId));
             }
-        }
 
-        // Generate new credential
-        var (plainCredential, credentialHash) = _tokenService.GenerateClaimCredential();
-        var expiresAt = DateTimeOffset.UtcNow.AddDays(_tokenService.ClaimCredentialExpirationDays);
+            // Generate new credential
+            var (plainCredential, credentialHash) = _tokenService.GenerateClaimCredential();
+            var expiresAt = DateTimeOffset.UtcNow.AddDays(_tokenService.ClaimCredentialExpirationDays);
 
-        var claimCredential = Invitation.CreateClaimCredential(
-            request.HomeId,
-            credentialHash,
-            expiresAt);
+            var claimCredential = Invitation.CreateClaimCredential(
+                request.HomeId,
+                credentialHash,
+                expiresAt,
+                request.TechnicianUserId);
 
-        await _claimCredentialRepository.AddAsync(claimCredential, cancellationToken);
+            await _claimCredentialRepository.AddAsync(claimCredential, cancellationToken);
 
-        // Publish ClaimCredentialGenerated outbox event
-        var credentialGeneratedEvent = new OutboxEvent
-        {
-            Id = Guid.NewGuid(),
-            EventType = "claim.credential.generated",
-            Payload = JsonSerializer.Serialize(new
+            // Publish ClaimCredentialGenerated outbox event
+            var credentialGeneratedEvent = new OutboxEvent
             {
-                homeId = request.HomeId,
-                credentialId = claimCredential.Id,
-                expiresAt = expiresAt,
-                generatedAt = DateTimeOffset.UtcNow,
-                generatedByTechnicianId = request.TechnicianUserId
-            }),
-            CorrelationId = request.HomeId.ToString(),
-            CreatedAt = DateTimeOffset.UtcNow
-        };
-        await _outboxEventRepository.AddAsync(credentialGeneratedEvent, cancellationToken);
+                Id = Guid.NewGuid(),
+                EventType = "claim.credential.generated",
+                Payload = JsonSerializer.Serialize(new
+                {
+                    homeId = request.HomeId,
+                    credentialId = claimCredential.Id,
+                    expiresAt = expiresAt,
+                    generatedAt = DateTimeOffset.UtcNow,
+                    generatedByTechnicianUserId = request.TechnicianUserId
+                }),
+                CorrelationId = request.HomeId.ToString(),
+                CreatedAt = DateTimeOffset.UtcNow
+            };
+            await _outboxEventRepository.AddAsync(credentialGeneratedEvent, cancellationToken);
 
-        // Audit log
-        var auditLog = PlatformAuditLog.Create(
-            request.TechnicianUserId,
-            "ClaimCredentialGenerated",
-            "Home",
-            request.HomeId,
-            $"{{\"homeId\":\"{request.HomeId}\"}}");
+            // Audit log
+            var auditLog = PlatformAuditLog.Create(
+                request.TechnicianUserId,
+                "ClaimCredentialGenerated",
+                "Home",
+                request.HomeId,
+                $"{{\"homeId\":\"{request.HomeId}\"}}");
 
-        await _auditLogRepository.AddAsync(auditLog, cancellationToken);
+            await _auditLogRepository.AddAsync(auditLog, cancellationToken);
 
-        return Result<GenerateClaimCredentialResponse>.Success(new GenerateClaimCredentialResponse(
-            plainCredential,
-            expiresAt,
-            request.HomeId));
+            return Result<GenerateClaimCredentialResponse>.Success(new GenerateClaimCredentialResponse(
+                plainCredential,
+                expiresAt,
+                request.HomeId));
+        }
+        finally
+        {
+            await _claimCredentialRepository.ReleaseGenerationLockAsync(request.HomeId, cancellationToken);
+        }
     }
 }
