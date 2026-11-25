@@ -97,6 +97,13 @@ public sealed class MembershipRepository : IMembershipRepository
     }
 
     /// <inheritdoc />
+    public async Task<Membership?> GetByUserAndHomeAsync(Guid userId, Guid homeId, CancellationToken cancellationToken = default)
+    {
+        return await _context.Memberships
+            .FirstOrDefaultAsync(m => m.UserId == userId && m.HomeId == homeId && m.IsActive, cancellationToken);
+    }
+
+    /// <inheritdoc />
     public async Task<bool> TryAcquireLastOwnerLockAsync(Guid homeId, CancellationToken ct = default)
     {
         // Derive a stable int64 key from the Guid (first 8 bytes) for PostgreSQL advisory lock

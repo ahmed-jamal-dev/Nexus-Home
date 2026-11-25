@@ -42,6 +42,11 @@ public interface IMembershipRepository
     /// </summary>
     Task<List<Membership>> ListAsync(Guid homeId, string? cursor, int limit, CancellationToken ct = default);
 
+    /// <summary>
+    /// Gets the active membership for a user in a specific home.
+    /// </summary>
+    Task<Membership?> GetByUserAndHomeAsync(Guid userId, Guid homeId, CancellationToken ct = default);
+
 /// <summary>
 /// Attempts to acquire a transaction-scoped advisory lock for last-owner protection on a home.
 /// Returns true if lock acquired, false if already held by another transaction.

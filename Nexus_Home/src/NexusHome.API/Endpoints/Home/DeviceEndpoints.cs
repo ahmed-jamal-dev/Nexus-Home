@@ -4,6 +4,7 @@ using MediatR;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using NexusHome.Api.Filters;
 using NexusHome.Application.Features.Home.Device.AddDevice;
 using NexusHome.Application.Features.Home.Device.AssignDeviceToRoom;
@@ -22,12 +23,13 @@ public static class DeviceEndpoints
         var group = app.MapGroup("/api/v1/homes/{homeId:guid}/devices")
             .WithTags("Device Management")
             .WithOpenApi()
-            .RequireAuthorization()
+            .RequireRateLimiting("Default")
             .AddEndpointFilter<PlatformRolesVersionFilter>();
 
-        // Create device
+        // Create device - Member or Owner
         group.MapPost("/", CreateDeviceAsync)
             .WithName("CreateDevice")
+            .RequireAuthorization("HomeMemberOrOwner")
             .WithSummary("Add a device to a home")
             .WithDescription("Registers a new device with a globally unique ExternalId, capabilities, and metadata. Requires home membership (Owner or Member).")
             .Produces<AddDeviceResponse>(StatusCodes.Status201Created)
@@ -37,29 +39,32 @@ public static class DeviceEndpoints
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict);
 
-        // List devices
+        // List devices - Any member (Owner, Member, Guest)
         group.MapGet("/", ListDevicesAsync)
             .WithName("ListDevices")
+            .RequireAuthorization("HomeAnyMember")
             .WithSummary("List devices in a home")
-            .WithDescription("Returns a paginated list of devices for the home, optionally filtered by room. Requires home membership (Owner or Member).")
+            .WithDescription("Returns a paginated list of devices for the home, optionally filtered by room. Requires home membership (Owner, Member, or Guest).")
             .Produces<ListDevicesResponse>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
-        // Get device by ID
+        // Get device by ID - Any member (Owner, Member, Guest)
         group.MapGet("/{deviceId:guid}", GetDeviceAsync)
             .WithName("GetDevice")
+            .RequireAuthorization("HomeAnyMember")
             .WithSummary("Get a device by ID")
-            .WithDescription("Retrieves a device by its ID with full details including reported state. Requires home membership (Owner or Member).")
+            .WithDescription("Retrieves a device by its ID with full details including reported state. Requires home membership (Owner, Member, or Guest).")
             .Produces<GetDeviceResponse>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
-        // Update device
+        // Update device - Member or Owner
         group.MapPut("/{deviceId:guid}", UpdateDeviceAsync)
             .WithName("UpdateDevice")
+            .RequireAuthorization("HomeMemberOrOwner")
             .WithSummary("Update a device")
             .WithDescription("Updates device name, device type, capabilities, metadata, firmware version, manufacturer, or model. Full replacement for capabilities and metadata. Requires home membership (Owner or Member).")
             .Produces<UpdateDeviceResponse>(StatusCodes.Status200OK)
@@ -69,9 +74,10 @@ public static class DeviceEndpoints
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict);
 
-        // Assign/Unassign device to room
+        // Assign/Unassign device to room - Member or Owner
         group.MapPatch("/{deviceId:guid}/room", AssignDeviceToRoomAsync)
             .WithName("AssignDeviceToRoom")
+            .RequireAuthorization("HomeMemberOrOwner")
             .WithSummary("Assign or unassign a device to/from a room")
             .WithDescription("Moves a device to a different room or unassigns it (null roomId). Room must belong to the same home. Requires home membership (Owner or Member).")
             .Produces<AssignDeviceToRoomResponse>(StatusCodes.Status200OK)
@@ -81,9 +87,10 @@ public static class DeviceEndpoints
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict);
 
-        // Soft delete device
+        // Soft delete device - Member or Owner
         group.MapDelete("/{deviceId:guid}", RemoveDeviceAsync)
             .WithName("RemoveDevice")
+            .RequireAuthorization("HomeMemberOrOwner")
             .WithSummary("Remove a device")
             .WithDescription("Soft deletes a device, excluding it from lists. RoomId is preserved on device removal. Requires home membership (Owner or Member).")
             .Produces(StatusCodes.Status204NoContent)

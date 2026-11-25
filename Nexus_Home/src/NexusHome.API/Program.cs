@@ -1,7 +1,9 @@
 using FluentValidation;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OpenApi;
 using Microsoft.AspNetCore.RateLimiting;
@@ -9,18 +11,20 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
+using NexusHome.Api.Authorization.Handlers;
+using NexusHome.Api.Authorization.Requirements;
 using NexusHome.Api.Endpoints.Authentication;
 using NexusHome.Api.Endpoints.Home;
 using NexusHome.Api.Endpoints.Platform;
-using NexusHome.Application.Interfaces;
-using NexusHome.Infrastructure.Services;
 using NexusHome.Api.Filters;
 using NexusHome.Application;
+using NexusHome.Application.Common.Authorization;
 using NexusHome.Application.Interfaces;
 using NexusHome.Domain.Entities;
 using NexusHome.Infrastructure;
 using NexusHome.Infrastructure.Authentication;
 using NexusHome.Infrastructure.Data;
+using NexusHome.Infrastructure.Services;
 using System.Text;
 using System.Threading.RateLimiting;
 
@@ -140,6 +144,14 @@ public class Program
                 };
             });
 
+        // Register IHttpContextAccessor for authorization handlers
+        builder.Services.AddHttpContextAccessor();
+
+        // Register authorization handlers (Task 2.5 - Role Model)
+        builder.Services.AddScoped<AuthorizationHandler<HomeOwnerRequirement>, HomeOwnerHandler>();
+        builder.Services.AddScoped<AuthorizationHandler<HomeMemberOrOwnerRequirement>, HomeMemberOrOwnerHandler>();
+        builder.Services.AddScoped<AuthorizationHandler<HomeAnyMemberRequirement>, HomeAnyMemberHandler>();
+
         // Authorization policies
         builder.Services.AddAuthorization(options =>
         {
@@ -192,6 +204,16 @@ public class Program
             options.AddPolicy("PlatformConfig", policy =>
                 policy.RequireAssertion(context =>
                     context.User.HasClaim(c => c.Type == "scope" && c.Value.Split(' ').Contains("platform:config"))));
+
+            // Home role-based policies (Task 2.5 - Role Model)
+            options.AddPolicy("HomeOwner", policy =>
+                policy.Requirements.Add(new HomeOwnerRequirement()));
+
+            options.AddPolicy("HomeMemberOrOwner", policy =>
+                policy.Requirements.Add(new HomeMemberOrOwnerRequirement()));
+
+            options.AddPolicy("HomeAnyMember", policy =>
+                policy.Requirements.Add(new HomeAnyMemberRequirement()));
         });
 
         // Rate limiting

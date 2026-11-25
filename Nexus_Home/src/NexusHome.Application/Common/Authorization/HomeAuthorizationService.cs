@@ -2,6 +2,7 @@ namespace NexusHome.Application.Common.Authorization;
 
 using NexusHome.Application.Interfaces;
 using NexusHome.Domain.Entities;
+using NexusHome.Domain.Enums;
 using static NexusHome.Application.Common.Errors;
 using DomainHome = NexusHome.Domain.Entities.Home;
 
@@ -91,5 +92,73 @@ public sealed class HomeAuthorizationService
             return Result<DomainHome>.Failure(Errors.Home.HomeNotFound);
         }
         return Result<DomainHome>.Success(home);
+    }
+
+    /// <summary>
+    /// Checks if user has a specific role in a home (or bypass via platform role/provisioner).
+    /// </summary>
+    public async Task<bool> HasRoleAsync(
+        Guid homeId,
+        Guid userId,
+        Role requiredRole,
+        CancellationToken cancellationToken = default)
+    {
+        // SuperAdmin/PlatformAdmin bypass
+        if (await _userPlatformRoleRepository.HasPlatformAdminOrHigherAsync(userId, cancellationToken))
+            return true;
+
+        // Provisioner bypass (treated as authorized for home)
+        var home = await _homeRepository.GetByIdAsync(homeId, cancellationToken);
+        if (home?.ProvisionedByTechnicianId == userId)
+            return true;
+
+        // Check membership role
+        var membership = await _membershipRepository.GetByUserAndHomeAsync(userId, homeId, cancellationToken);
+        return membership != null && membership.Role == requiredRole;
+    }
+
+    /// <summary>
+    /// Checks if user is an active Owner of the home (or bypass).
+    /// </summary>
+    public async Task<bool> IsOwnerAsync(Guid homeId, Guid userId, CancellationToken cancellationToken = default)
+        => await HasRoleAsync(homeId, userId, Role.Owner, cancellationToken);
+
+    /// <summary>
+    /// Checks if user is an active Member or Owner of the home (or bypass).
+    /// </summary>
+    public async Task<bool> IsMemberOrOwnerAsync(Guid homeId, Guid userId, CancellationToken cancellationToken = default)
+    {
+        // SuperAdmin/PlatformAdmin bypass
+        if (await _userPlatformRoleRepository.HasPlatformAdminOrHigherAsync(userId, cancellationToken))
+            return true;
+
+        // Provisioner bypass
+        var home = await _homeRepository.GetByIdAsync(homeId, cancellationToken);
+        if (home?.ProvisionedByTechnicianId == userId)
+            return true;
+
+        // Check membership is Owner or Member (not Guest)
+        var membership = await _membershipRepository.GetByUserAndHomeAsync(userId, homeId, cancellationToken);
+        return membership != null && (membership.Role == Role.Owner || membership.Role == Role.Member);
+    }
+
+    /// <summary>
+    /// Checks if user is an active Owner, Member, or Guest of the home (or bypass).
+    /// Verifies home exists.
+    /// </summary>
+    public async Task<bool> IsAnyMemberAsync(Guid homeId, Guid userId, CancellationToken cancellationToken = default)
+    {
+        // SuperAdmin/PlatformAdmin bypass
+        if (await _userPlatformRoleRepository.HasPlatformAdminOrHigherAsync(userId, cancellationToken))
+            return true;
+
+        // Provisioner bypass
+        var home = await _homeRepository.GetByIdAsync(homeId, cancellationToken);
+        if (home?.ProvisionedByTechnicianId == userId)
+            return true;
+
+        // Check membership exists and is active (Owner, Member, or Guest)
+        var membership = await _membershipRepository.GetByUserAndHomeAsync(userId, homeId, cancellationToken);
+        return membership != null; // IsActive already filtered in GetByUserAndHomeAsync
     }
 }

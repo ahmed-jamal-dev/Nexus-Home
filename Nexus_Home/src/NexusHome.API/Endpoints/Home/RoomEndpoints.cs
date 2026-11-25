@@ -4,6 +4,7 @@ using MediatR;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using NexusHome.Api.Filters;
 using NexusHome.Application.Features.Home.Room.CreateRoom;
 using NexusHome.Application.Features.Home.Room.DeleteRoom;
@@ -21,12 +22,13 @@ public static class RoomEndpoints
         var group = app.MapGroup("/api/v1/homes/{homeId:guid}/rooms")
             .WithTags("Room Management")
             .WithOpenApi()
-            .RequireAuthorization()
+            .RequireRateLimiting("Default")
             .AddEndpointFilter<PlatformRolesVersionFilter>();
 
-        // Create room
+        // Create room - Member or Owner
         group.MapPost("/", CreateRoomAsync)
             .WithName("CreateRoom")
+            .RequireAuthorization("HomeMemberOrOwner")
             .WithSummary("Create a room in a home")
             .WithDescription("Creates a new room with a unique name within the home. Requires home membership (Owner or Member).")
             .Produces<CreateRoomResponse>(StatusCodes.Status201Created)
@@ -36,29 +38,32 @@ public static class RoomEndpoints
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict);
 
-        // List rooms
+        // List rooms - Any member (Owner, Member, Guest)
         group.MapGet("/", ListRoomsAsync)
             .WithName("ListRooms")
+            .RequireAuthorization("HomeAnyMember")
             .WithSummary("List rooms in a home")
-            .WithDescription("Returns a paginated list of rooms for the home. Requires home membership (Owner or Member).")
+            .WithDescription("Returns a paginated list of rooms for the home. Requires home membership (Owner, Member, or Guest).")
             .Produces<ListRoomsResponse>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
-        // Get room by ID
+        // Get room by ID - Any member (Owner, Member, Guest)
         group.MapGet("/{roomId:guid}", GetRoomAsync)
             .WithName("GetRoom")
+            .RequireAuthorization("HomeAnyMember")
             .WithSummary("Get a room by ID")
-            .WithDescription("Retrieves a room by its ID. Requires home membership (Owner or Member).")
+            .WithDescription("Retrieves a room by its ID. Requires home membership (Owner, Member, or Guest).")
             .Produces<GetRoomResponse>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
-        // Update room name
+        // Update room name - Member or Owner
         group.MapPut("/{roomId:guid}", UpdateRoomAsync)
             .WithName("UpdateRoom")
+            .RequireAuthorization("HomeMemberOrOwner")
             .WithSummary("Update a room name")
             .WithDescription("Updates the name of a room. Requires home membership (Owner or Member).")
             .Produces<UpdateRoomResponse>(StatusCodes.Status200OK)
@@ -68,9 +73,10 @@ public static class RoomEndpoints
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict);
 
-        // Soft delete room
+        // Soft delete room - Member or Owner
         group.MapDelete("/{roomId:guid}", DeleteRoomAsync)
             .WithName("DeleteRoom")
+            .RequireAuthorization("HomeMemberOrOwner")
             .WithSummary("Delete a room")
             .WithDescription("Soft deletes a room, removing it from the home. Associated devices will have their room assignment cleared. Requires home membership (Owner or Member).")
             .Produces(StatusCodes.Status204NoContent)
