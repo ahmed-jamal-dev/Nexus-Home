@@ -24,6 +24,11 @@ public interface ITokenService
     (string PlainCredential, string CredentialHash) GenerateClaimCredential();
 
     /// <summary>
+    /// Generates a member invitation token and returns the plaintext token and its hash.
+    /// </summary>
+    (string PlainToken, string TokenHash) GenerateMemberInvitationToken();
+
+    /// <summary>
     /// Validates a refresh token hash and returns the associated user if valid.
     /// </summary>
     Task<Result<User>> ValidateRefreshTokenAsync(string tokenHash, CancellationToken cancellationToken = default);

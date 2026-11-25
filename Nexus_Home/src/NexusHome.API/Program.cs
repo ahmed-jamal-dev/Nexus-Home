@@ -12,6 +12,8 @@ using Microsoft.OpenApi;
 using NexusHome.Api.Endpoints.Authentication;
 using NexusHome.Api.Endpoints.Home;
 using NexusHome.Api.Endpoints.Platform;
+using NexusHome.Application.Interfaces;
+using NexusHome.Infrastructure.Services;
 using NexusHome.Api.Filters;
 using NexusHome.Application;
 using NexusHome.Application.Interfaces;
@@ -195,6 +197,15 @@ public class Program
         // Rate limiting
         builder.Services.AddRateLimiter(options =>
         {
+            // Default limiter: 60 requests per minute per user
+            options.AddFixedWindowLimiter("Default", limiterOptions =>
+            {
+                limiterOptions.PermitLimit = 60;
+                limiterOptions.Window = TimeSpan.FromMinutes(1);
+                limiterOptions.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+                limiterOptions.QueueLimit = 0;
+            });
+
             // Claim endpoint: 10 requests per minute per IP + 5 per user
             options.AddFixedWindowLimiter("ClaimEndpoint", limiterOptions =>
             {
@@ -376,6 +387,7 @@ public class Program
         app.MapRoomEndpoints();
         app.MapDeviceEndpoints();
         app.MapPlatformEndpoints();
+        app.MapMemberEndpoints();
 
         app.UseHttpsRedirection();
 

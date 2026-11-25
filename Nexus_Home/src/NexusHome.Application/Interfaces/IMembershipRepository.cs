@@ -36,4 +36,9 @@ public interface IMembershipRepository
     /// Checks if a user is an active owner of a home.
     /// </summary>
     Task<bool> IsActiveOwnerAsync(Guid userId, Guid homeId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Lists active memberships for a home with cursor-based pagination.
+    /// </summary>
+    Task<List<Membership>> ListAsync(Guid homeId, string? cursor, int limit, CancellationToken ct = default);
 }

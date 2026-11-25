@@ -126,6 +126,26 @@ public sealed class TokenService : ITokenService
     }
 
     /// <inheritdoc />
+    public (string PlainToken, string TokenHash) GenerateMemberInvitationToken()
+    {
+        // Generate a cryptographically secure random token (configured bytes, default 32 = 256 bits)
+        var randomBytes = RandomNumberGenerator.GetBytes(_claimCredentialSettings.TokenBytes);
+
+        // Encode as Base64URL for safe transmission
+        var plainToken = Convert.ToBase64String(randomBytes)
+            .Replace("+", "-")
+            .Replace("/", "_")
+            .TrimEnd('=');
+
+        // Hash the token with SHA-256 for storage
+        using var sha256 = SHA256.Create();
+        var hashBytes = sha256.ComputeHash(randomBytes);
+        var tokenHash = Convert.ToHexString(hashBytes).ToLowerInvariant();
+
+        return (plainToken, tokenHash);
+    }
+
+    /// <inheritdoc />
     public async Task<Result<User>> ValidateRefreshTokenAsync(string tokenHash, CancellationToken cancellationToken = default)
     {
         var refreshToken = await _refreshTokenRepository.GetByTokenHashAsync(tokenHash, cancellationToken);

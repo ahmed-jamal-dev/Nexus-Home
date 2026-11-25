@@ -68,12 +68,16 @@ public static class DependencyInjection
         services.AddScoped<IHomeRepository, HomeRepository>();
         services.AddScoped<IClaimCredentialRepository, ClaimCredentialRepository>();
         services.AddScoped<IMembershipRepository, MembershipRepository>();
+        services.AddScoped<IInvitationRepository, InvitationRepository>();
         services.AddScoped<IOutboxEventRepository, OutboxEventRepository>();
         services.AddScoped<IRoomRepository, RoomRepository>();
         services.AddScoped<IDeviceRepository, DeviceRepository>();
         services.AddScoped<IPlatformRoleRepository, PlatformRoleRepository>();
         services.AddScoped<IUserPlatformRoleRepository, UserPlatformRoleRepository>();
         services.AddScoped<IPlatformAuditLogRepository, PlatformAuditLogRepository>();
+
+        // Register email service (Mock implementation for development)
+        services.AddScoped<IEmailService, MockEmailService>();
 
         // Register outbox processor as hosted service
         services.AddHostedService<OutboxProcessor>();
