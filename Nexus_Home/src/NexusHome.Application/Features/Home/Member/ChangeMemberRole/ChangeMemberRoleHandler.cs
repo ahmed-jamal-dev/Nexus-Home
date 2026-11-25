@@ -75,6 +75,13 @@ public sealed class ChangeMemberRoleHandler : IRequestHandler<ChangeMemberRoleCo
             return Result<ChangeMemberRoleResponse>.Failure(Error.Create("MEMBER.CANNOT_CHANGE_OWNER_ROLE", "Cannot change the role of an Owner"));
         }
 
+        // Acquire advisory lock for last-owner protection before check + modification
+        var lockAcquired = await _membershipRepository.TryAcquireLastOwnerLockAsync(request.HomeId, cancellationToken);
+        if (!lockAcquired)
+        {
+            return Result<ChangeMemberRoleResponse>.Failure(Error.Create("MEMBER.CONCURRENCY_CONFLICT", "Another operation is modifying home ownership. Please retry."));
+        }
+
         // Cannot change own role to non-Owner if last Owner
         if (membership.UserId == request.UserId)
         {
@@ -101,7 +108,7 @@ public sealed class ChangeMemberRoleHandler : IRequestHandler<ChangeMemberRoleCo
         var memberRoleChangedEvent = new OutboxEvent
         {
             Id = Guid.NewGuid(),
-            EventType = "member.role_changed",
+            EventType = "member.role.changed",
             Payload = JsonSerializer.Serialize(new
             {
                 homeId = request.HomeId,

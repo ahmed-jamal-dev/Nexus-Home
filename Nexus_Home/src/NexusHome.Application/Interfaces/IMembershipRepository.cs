@@ -41,4 +41,16 @@ public interface IMembershipRepository
     /// Lists active memberships for a home with cursor-based pagination.
     /// </summary>
     Task<List<Membership>> ListAsync(Guid homeId, string? cursor, int limit, CancellationToken ct = default);
+
+/// <summary>
+/// Attempts to acquire a transaction-scoped advisory lock for last-owner protection on a home.
+/// Returns true if lock acquired, false if already held by another transaction.
+/// </summary>
+Task<bool> TryAcquireLastOwnerLockAsync(Guid homeId, CancellationToken ct = default);
+
+/// <summary>
+/// Releases the advisory lock for last-owner protection.
+/// No-op for transaction-scoped locks (auto-released on commit/rollback); kept for interface symmetry.
+/// </summary>
+Task ReleaseLastOwnerLockAsync(Guid homeId, CancellationToken ct = default);
 }

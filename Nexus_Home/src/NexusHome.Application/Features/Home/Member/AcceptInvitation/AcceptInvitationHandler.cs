@@ -113,11 +113,11 @@ public sealed class AcceptInvitationHandler : IRequestHandler<AcceptInvitationCo
 
         await _membershipRepository.AddAsync(membership, cancellationToken);
 
-        // Publish invitation.accepted outbox event
+        // Publish member.joined outbox event
         var invitationAcceptedEvent = new OutboxEvent
         {
             Id = Guid.NewGuid(),
-            EventType = "invitation.accepted",
+            EventType = "member.joined",
             Payload = JsonSerializer.Serialize(new
             {
                 homeId = invitation.HomeId,

@@ -5,6 +5,7 @@ using NexusHome.Application.Interfaces;
 using NexusHome.Domain.Entities;
 using NexusHome.Domain.Enums;
 using NexusHome.Infrastructure.Data;
+using Npgsql;
 
 /// <summary>
 /// EF Core implementation of membership repository.
@@ -93,5 +94,27 @@ public sealed class MembershipRepository : IMembershipRepository
             .ThenBy(m => m.Id)
             .Take(limit)
             .ToListAsync(cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public async Task<bool> TryAcquireLastOwnerLockAsync(Guid homeId, CancellationToken ct = default)
+    {
+        // Derive a stable int64 key from the Guid (first 8 bytes) for PostgreSQL advisory lock
+        var keyBytes = homeId.ToByteArray();
+        var lockKey = BitConverter.ToInt64(keyBytes, 0);
+
+        // pg_try_advisory_xact_lock returns true if lock acquired, false if already held
+        // Transaction-scoped: auto-released on commit or rollback
+        var sql = "SELECT pg_try_advisory_xact_lock(@lockKey)";
+        var result = await _context.Database.SqlQueryRaw<bool>(sql, new NpgsqlParameter("lockKey", lockKey)).FirstAsync(ct);
+        return result;
+    }
+
+    /// <inheritdoc />
+    public async Task ReleaseLastOwnerLockAsync(Guid homeId, CancellationToken ct = default)
+    {
+        // No-op for transaction-scoped locks (pg_advisory_xact_unlock is automatic at transaction end).
+        // Kept for interface symmetry and potential future session-scoped locks.
+        await Task.CompletedTask;
     }
 }

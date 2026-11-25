@@ -197,31 +197,55 @@ public class Program
         // Rate limiting
         builder.Services.AddRateLimiter(options =>
         {
-            // Default limiter: 60 requests per minute per user
-            options.AddFixedWindowLimiter("Default", limiterOptions =>
+            // Default policy: 60 requests/min per authenticated user, IP fallback for unauthenticated
+            options.AddPolicy("Default", context =>
             {
-                limiterOptions.PermitLimit = 60;
-                limiterOptions.Window = TimeSpan.FromMinutes(1);
-                limiterOptions.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
-                limiterOptions.QueueLimit = 0;
+                var userId = context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)
+                          ?? context.User.FindFirst("sub");
+                string partitionKey;
+                if (userId != null && Guid.TryParse(userId.Value, out _))
+                {
+                    partitionKey = $"user:{userId.Value}";
+                }
+                else
+                {
+                    // Fallback: partition by IP for unauthenticated requests
+                    var ip = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+                    partitionKey = $"ip:{ip}";
+                }
+                return RateLimitPartition.GetFixedWindowLimiter(partitionKey, _ => new FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = 60,
+                    Window = TimeSpan.FromMinutes(1),
+                    QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                    QueueLimit = 0
+                });
             });
 
-            // Claim endpoint: 10 requests per minute per IP + 5 per user
-            options.AddFixedWindowLimiter("ClaimEndpoint", limiterOptions =>
+            // Claim endpoint policy: 10 requests/min per IP (public endpoint)
+            options.AddPolicy("ClaimEndpoint", context =>
             {
-                limiterOptions.PermitLimit = 10;
-                limiterOptions.Window = TimeSpan.FromMinutes(1);
-                limiterOptions.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
-                limiterOptions.QueueLimit = 0;
+                var ip = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+                return RateLimitPartition.GetFixedWindowLimiter($"ip:{ip}", _ => new FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = 10,
+                    Window = TimeSpan.FromMinutes(1),
+                    QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                    QueueLimit = 0
+                });
             });
 
-            // Provisioning endpoints: 5 requests per minute per client
-            options.AddFixedWindowLimiter("ProvisioningEndpoint", limiterOptions =>
+            // Provisioning endpoints policy: 5 requests/min per IP (client-based)
+            options.AddPolicy("ProvisioningEndpoint", context =>
             {
-                limiterOptions.PermitLimit = 5;
-                limiterOptions.Window = TimeSpan.FromMinutes(1);
-                limiterOptions.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
-                limiterOptions.QueueLimit = 0;
+                var ip = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+                return RateLimitPartition.GetFixedWindowLimiter($"ip:{ip}", _ => new FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = 5,
+                    Window = TimeSpan.FromMinutes(1),
+                    QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                    QueueLimit = 0
+                });
             });
 
             options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;

@@ -62,7 +62,14 @@ public sealed class RemoveMemberHandler : IRequestHandler<RemoveMemberCommand, R
             return Result<RemoveMemberResponse>.Failure(Error.Create("MEMBER.NOT_FOUND", "Member not found in this home"));
         }
 
-        // Cannot remove self if last Owner
+        // Acquire advisory lock for last-owner protection before check + modification
+        var lockAcquired = await _membershipRepository.TryAcquireLastOwnerLockAsync(request.HomeId, cancellationToken);
+        if (!lockAcquired)
+        {
+            return Result<RemoveMemberResponse>.Failure(Error.Create("MEMBER.CONCURRENCY_CONFLICT", "Another operation is modifying home ownership. Please retry."));
+        }
+
+        // Check if removing self and is last Owner
         if (membership.UserId == request.UserId)
         {
             var isLastOwner = await IsLastActiveOwnerAsync(request.HomeId, cancellationToken);

@@ -103,11 +103,11 @@ public sealed class InviteMemberHandler : IRequestHandler<InviteMemberCommand, R
 
         await _invitationRepository.AddAsync(invitation, cancellationToken);
 
-        // Publish invitation.created outbox event
+        // Publish member.invited outbox event
         var invitationCreatedEvent = new OutboxEvent
         {
             Id = Guid.NewGuid(),
-            EventType = "invitation.created",
+            EventType = "member.invited",
             Payload = JsonSerializer.Serialize(new
             {
                 homeId = request.HomeId,
