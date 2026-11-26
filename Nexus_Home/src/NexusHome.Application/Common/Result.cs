@@ -207,6 +207,23 @@ public static class Errors
         public static readonly Error DeviceBelongsToOtherHome = new("DEVICE.BELONGS_TO_OTHER_HOME", "Device does not belong to this home");
     }
 
+    public static class PermissionErrors
+    {
+        public static readonly Error PermissionNotFound = new("PERMISSION.NOT_FOUND", "Permission not found");
+        public static readonly Error PermissionAlreadyExists = new("PERMISSION.ALREADY_EXISTS", "Permission already exists for this member");
+        public static readonly Error PermissionDenied = new("PERMISSION.DENIED", "Permission denied");
+        public static readonly Error InvalidPermissionType = new("PERMISSION.INVALID_TYPE", "Invalid permission type");
+        public static readonly Error InvalidTargetType = new("PERMISSION.INVALID_TARGET_TYPE", "Invalid target type");
+        public static readonly Error InvalidEffect = new("PERMISSION.INVALID_EFFECT", "Invalid effect (must be Grant or Deny)");
+        public static readonly Error MemberNotFound = new("PERMISSION.MEMBER_NOT_FOUND", "Member not found in this home");
+        public static readonly Error TargetNotFound = new("PERMISSION.TARGET_NOT_FOUND", "Target not found in this home");
+        public static readonly Error CrossHomeTarget = new("PERMISSION.CROSS_HOME_TARGET", "Target does not belong to the specified home");
+        public static readonly Error CameraRequired = new("PERMISSION.CAMERA_REQUIRED", "Target device must have camera capability");
+        public static readonly Error MicrophoneRequired = new("PERMISSION.MICROPHONE_REQUIRED", "Target device must have microphone capability");
+        public static readonly Error CannotGrantSelf = new("PERMISSION.CANNOT_GRANT_SELF", "Cannot grant permission to yourself");
+        public static readonly Error OwnerCannotBeDenied = new("PERMISSION.OWNER_CANNOT_BE_DENIED", "Owner permissions cannot be explicitly denied");
+    }
+
     public static class Platform
     {
         public static readonly Error UserNotFound = new("PLATFORM.USER_NOT_FOUND", "User not found");

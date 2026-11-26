@@ -43,12 +43,12 @@ public static class MemberEndpoints
             .RequireRateLimiting("Default")
             .AddEndpointFilter<PlatformRolesVersionFilter>();
 
-        // Invite member - Owner only
+        // Invite member - Requires MemberManage permission or Owner
         memberGroup.MapPost("/", InviteMemberAsync)
             .WithName("InviteMember")
-            .RequireAuthorization("HomeOwner")
+            .RequireAuthorization("Permission:MemberManage")
             .WithSummary("Invite a member to a home")
-            .WithDescription("Invites a user by email to join the home as a Member or Guest. Returns the plaintext invitation token ONCE. Only home Owner can invite.")
+            .WithDescription("Invites a user by email to join the home as a Member or Guest. Returns the plaintext invitation token ONCE. Requires MemberManage permission on the home or Owner role.")
             .Produces<InviteMemberResponse>(StatusCodes.Status201Created)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
@@ -67,24 +67,24 @@ public static class MemberEndpoints
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
-        // Change member role - Owner only
+        // Change member role - Requires MemberManage permission or Owner
         memberGroup.MapPut("/{membershipId:guid}/role", ChangeMemberRoleAsync)
             .WithName("ChangeMemberRole")
-            .RequireAuthorization("HomeOwner")
+            .RequireAuthorization("Permission:MemberManage")
             .WithSummary("Change a member's role")
-            .WithDescription("Changes a member's role between Member and Guest. Owner role changes are blocked. Only home Owner can change roles.")
+            .WithDescription("Changes a member's role between Member and Guest. Owner role changes are blocked. Requires MemberManage permission on the home or Owner role.")
             .Produces<ChangeMemberRoleResponse>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
-        // Remove member - Owner only
+        // Remove member - Requires MemberManage permission or Owner
         memberGroup.MapDelete("/{membershipId:guid}", RemoveMemberAsync)
             .WithName("RemoveMember")
-            .RequireAuthorization("HomeOwner")
+            .RequireAuthorization("Permission:MemberManage")
             .WithSummary("Remove a member from a home")
-            .WithDescription("Removes a member from the home (deactivates membership). Cannot remove the last active Owner. Only home Owner can remove members.")
+            .WithDescription("Removes a member from the home (deactivates membership). Cannot remove the last active Owner. Requires MemberManage permission on the home or Owner role.")
             .Produces(StatusCodes.Status204NoContent)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status403Forbidden)

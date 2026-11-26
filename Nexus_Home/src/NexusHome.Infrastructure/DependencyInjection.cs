@@ -72,6 +72,7 @@ public static class DependencyInjection
         services.AddScoped<IOutboxEventRepository, OutboxEventRepository>();
         services.AddScoped<IRoomRepository, RoomRepository>();
         services.AddScoped<IDeviceRepository, DeviceRepository>();
+        services.AddScoped<IPermissionRepository, PermissionRepository>();
         services.AddScoped<IPlatformRoleRepository, PlatformRoleRepository>();
         services.AddScoped<IUserPlatformRoleRepository, UserPlatformRoleRepository>();
         services.AddScoped<IPlatformAuditLogRepository, PlatformAuditLogRepository>();

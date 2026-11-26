@@ -673,8 +673,7 @@ namespace NexusHome.Infrastructure.Data.Migrations
 
                     b.Property<string>("PermissionType")
                         .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)")
+                        .HasColumnType("text")
                         .HasColumnName("permission_type");
 
                     b.Property<Guid>("TargetId")
@@ -683,8 +682,7 @@ namespace NexusHome.Infrastructure.Data.Migrations
 
                     b.Property<string>("TargetType")
                         .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)")
+                        .HasColumnType("text")
                         .HasColumnName("target_type");
 
                     b.Property<DateTimeOffset>("UpdatedAt")

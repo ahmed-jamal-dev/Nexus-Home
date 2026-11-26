@@ -6,8 +6,8 @@ using NexusHome.Domain.Enums;
 /// Grant/deny permission with target scoping.
 /// Per DATABASE_MVP_SUMMARY.md and v1.3 baseline Section 6.2.11.
 /// - effect: grant or deny (resolved)
-/// - permission_type: BLOCKER B-01 (using string for now)
-/// - target_type: BLOCKER B-02 (using string for now)
+/// - permission_type: BLOCKER B-01 (using enum with [PgName] mapping)
+/// - target_type: BLOCKER B-02 (using enum with [PgName] mapping)
 /// - Polymorphic target_id (no FK enforcement - MVP trade-off)
 /// - Trigger validates: grantor/grantee same home, target home consistency,
 ///   camera/microphone require capability, owner can grant, non-owner needs member:manage.
@@ -28,13 +28,13 @@ public class Permission : Entity
     /// Permission type (e.g., "device:control", "camera:stream").
     /// BLOCKER B-01: awaiting Product + Security approval for enum values.
     /// </summary>
-    public string PermissionType { get; private set; } = string.Empty;
+    public PermissionType PermissionType { get; private set; }
 
     /// <summary>
     /// Target type (device, home, room, camera, microphone).
     /// BLOCKER B-02: awaiting Product + Security approval for enum values.
     /// </summary>
-    public string TargetType { get; private set; } = string.Empty;
+    public TargetType TargetType { get; private set; }
 
     /// <summary>
     /// Target ID (polymorphic - references device/home/room).
@@ -74,7 +74,7 @@ public class Permission : Entity
     protected Permission() { }
 
     public Permission(Guid id, Guid homeId, Guid? grantorMembershipId, Guid granteeMembershipId,
-        string permissionType, string targetType, Guid targetId, Effect effect = Effect.Grant)
+        PermissionType permissionType, TargetType targetType, Guid targetId, Effect effect = Effect.Grant)
         : base(id)
     {
         HomeId = homeId;
@@ -93,7 +93,30 @@ public class Permission : Entity
     public bool IsSystemDeny => GrantorMembershipId == null && Effect == Effect.Deny;
 
     /// <summary>
-    /// Checks if this permission is effective (not a system deny with no grantor validation needed).
+    /// Checks if this permission is a grant (not a system deny).
     /// </summary>
     public bool IsGrant => Effect == Effect.Grant;
+
+    /// <summary>
+    /// Creates a new permission.
+    /// </summary>
+    public static Permission Create(
+        Guid granteeMembershipId,
+        Guid? grantorMembershipId,
+        PermissionType permissionType,
+        TargetType targetType,
+        Guid targetId,
+        Effect effect,
+        Guid homeId)
+    {
+        return new Permission(
+            Guid.NewGuid(),
+            homeId,
+            grantorMembershipId,
+            granteeMembershipId,
+            permissionType,
+            targetType,
+            targetId,
+            effect);
+    }
 }

@@ -4,16 +4,15 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using NexusHome.Domain.Entities;
 using NexusHome.Domain.Enums;
-using NexusHome.Domain.StringConstants;
+using NexusHome.Infrastructure.Converters;
 
 /// <summary>
 /// Permission entity configuration.
 /// Per v1.3 baseline Section 6.2.9.
 ///
-/// BLOCKER B-01: permission_type_enum requires Product+Security approval.
-/// BLOCKER B-02: target_type_enum requires Product+Security approval.
-/// Currently using string constants from PermissionTypeConstants and PermissionTargetTypeConstants.
-/// Once enums are approved, replace string columns with enum conversions.
+/// Enum mapping strategy: Custom ValueConverters for enum <-> PostgreSQL enum label strings.
+/// This approach keeps Domain layer free of Npgsql dependency (Clean Architecture).
+/// Converters map C# enum members to their PostgreSQL enum labels (e.g., DeviceControl -> "device:control").
 /// </summary>
 public class PermissionConfiguration : IEntityTypeConfiguration<Permission>
 {
@@ -36,12 +35,12 @@ public class PermissionConfiguration : IEntityTypeConfiguration<Permission>
 
         builder.Property(p => p.PermissionType)
             .IsRequired()
-            .HasMaxLength(50)
+            .HasConversion(new PermissionTypeConverter())
             .HasColumnName("permission_type");
 
         builder.Property(p => p.TargetType)
             .IsRequired()
-            .HasMaxLength(50)
+            .HasConversion(new TargetTypeConverter())
             .HasColumnName("target_type");
 
         builder.Property(p => p.TargetId)
@@ -50,9 +49,10 @@ public class PermissionConfiguration : IEntityTypeConfiguration<Permission>
 
         builder.Property(p => p.Effect)
             .IsRequired()
-            .HasConversion<string>()
+            .HasConversion(new EffectConverter())
             .HasMaxLength(10)
-            .HasDefaultValue(Effect.Grant);
+            .HasDefaultValue(Effect.Grant)
+            .HasColumnName("effect");
 
         builder.Property(p => p.GrantedAt)
             .HasColumnName("granted_at")
@@ -87,11 +87,11 @@ public class PermissionConfiguration : IEntityTypeConfiguration<Permission>
         // Trigger-enforced referential integrity for polymorphic target
         // CHECK constraint: target_type IN ('device', 'home', 'room', 'camera', 'microphone') -- enforced by DB trigger
         // Trigger: BEFORE INSERT OR UPDATE ON permissions
-        //   IF target_type = 'device' AND NOT EXISTS (SELECT 1 FROM devices WHERE id = target_id) THEN RAISE
-        //   IF target_type = 'home' AND NOT EXISTS (SELECT 1 FROM homes WHERE id = target_id) THEN RAISE
-        //   IF target_type = 'room' AND NOT EXISTS (SELECT 1 FROM rooms WHERE id = target_id) THEN RAISE
-        //   IF target_type = 'camera' AND NOT EXISTS (SELECT 1 FROM devices WHERE id = target_id AND device_type = 'camera') THEN RAISE
-        //   IF target_type = 'microphone' AND NOT EXISTS (SELECT 1 FROM devices WHERE id = target_id AND device_type = 'microphone') THEN RAISE
+        //   IF target_type = 'device' AND NOT EXISTS (SELECT 1 FROM devices WHERE id = target_id AND home_id = NEW.home_id) THEN RAISE
+        //   IF target_type = 'home' AND NOT EXISTS (SELECT 1 FROM homes WHERE id = target_id) AND NEW.home_id = target_id THEN RAISE
+        //   IF target_type = 'room' AND NOT EXISTS (SELECT 1 FROM rooms WHERE id = target_id AND home_id = NEW.home_id) THEN RAISE
+        //   IF target_type = 'camera' AND NOT EXISTS (SELECT 1 FROM devices WHERE id = target_id AND capabilities->>'camera' = 'true' AND home_id = NEW.home_id) THEN RAISE
+        //   IF target_type = 'microphone' AND NOT EXISTS (SELECT 1 FROM devices WHERE id = target_id AND capabilities->>'microphone' = 'true' AND home_id = NEW.home_id) THEN RAISE
         // This will be added via raw SQL in migration
 
         // Partial unique index: prevent duplicate grant/deny for same grantee+permission+target+effect

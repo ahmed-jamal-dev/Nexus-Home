@@ -2,103 +2,172 @@ namespace NexusHome.Domain.Enums;
 
 /// <summary>
 /// Permission type values.
-/// <para>
-/// <strong>BLOCKER B-01:</strong> These values are proposed per v1.3 baseline but NOT formally approved.
-/// Product + Security must approve exact enum values for <c>permission_type_enum</c> PostgreSQL type.
-/// </para>
-/// <para>
-/// Using string constants to avoid locking in unresolved values.
-/// When approved, replace with a proper enum and PostgreSQL enum type.
-/// </para>
+/// BLOCKER B-01: These values are proposed per v1.5 baseline but NOT formally approved.
+/// Product + Security must approve exact enum values for permission_type_enum PostgreSQL type.
+/// PostgreSQL enum label mapping is configured in Infrastructure layer via value converters.
 /// </summary>
-public static class PermissionType
+public enum PermissionType
 {
     /// <summary>
     /// Control device (e.g., turn on/off, set temperature).
+    /// PG Enum Label: "device:control"
     /// </summary>
-    public const string DeviceControl = "device:control";
+    DeviceControl,
 
     /// <summary>
     /// View device state (read-only).
+    /// PG Enum Label: "device:view"
     /// </summary>
-    public const string DeviceView = "device:view";
+    DeviceView,
 
     /// <summary>
     /// Manage device (add/remove/configure).
+    /// PG Enum Label: "device:manage"
     /// </summary>
-    public const string DeviceManage = "device:manage";
+    DeviceManage,
 
     /// <summary>
     /// Manage home (settings, members, rooms).
+    /// PG Enum Label: "home:manage"
     /// </summary>
-    public const string HomeManage = "home:manage";
+    HomeManage,
 
     /// <summary>
     /// Manage members (invite/remove/change roles).
+    /// PG Enum Label: "member:manage"
     /// </summary>
-    public const string MemberManage = "member:manage";
+    MemberManage,
 
     /// <summary>
     /// Stream camera (live video).
+    /// Privacy-sensitive.
+    /// PG Enum Label: "camera:stream"
     /// </summary>
-    public const string CameraStream = "camera:stream";
+    CameraStream,
 
     /// <summary>
     /// View camera (snapshots, recorded).
+    /// Privacy-sensitive.
+    /// PG Enum Label: "camera:view"
     /// </summary>
-    public const string CameraView = "camera:view";
+    CameraView,
 
     /// <summary>
     /// Stream microphone (live audio).
+    /// Privacy-sensitive.
+    /// PG Enum Label: "microphone:stream"
     /// </summary>
-    public const string MicrophoneStream = "microphone:stream";
+    MicrophoneStream,
 
     /// <summary>
     /// Manage settings.
+    /// PG Enum Label: "settings:manage"
     /// </summary>
-    public const string SettingsManage = "settings:manage";
+    SettingsManage,
 
     /// <summary>
     /// Propose AI actions.
+    /// PG Enum Label: "ai:propose"
     /// </summary>
-    public const string AiPropose = "ai:propose";
+    AiPropose,
 
     /// <summary>
     /// Execute AI actions.
+    /// PG Enum Label: "ai:execute"
     /// </summary>
-    public const string AiExecute = "ai:execute";
+    AiExecute
+}
 
+/// <summary>
+/// Extension methods for PermissionType.
+/// </summary>
+public static class PermissionTypeExtensions
+{
     /// <summary>
-    /// All proposed permission types.
+    /// All permission types in the catalog.
     /// </summary>
-    public static readonly IReadOnlyList<string> All = new[]
+    public static readonly IReadOnlyList<PermissionType> All = new[]
     {
-        DeviceControl, DeviceView, DeviceManage,
-        HomeManage, MemberManage,
-        CameraStream, CameraView,
-        MicrophoneStream,
-        SettingsManage,
-        AiPropose, AiExecute
+        PermissionType.DeviceControl, PermissionType.DeviceView, PermissionType.DeviceManage,
+        PermissionType.HomeManage, PermissionType.MemberManage,
+        PermissionType.CameraStream, PermissionType.CameraView,
+        PermissionType.MicrophoneStream,
+        PermissionType.SettingsManage,
+        PermissionType.AiPropose, PermissionType.AiExecute
     };
 
     /// <summary>
     /// Privacy-sensitive permission types (camera/microphone).
     /// These are never inferred from role defaults.
     /// </summary>
-    public static readonly IReadOnlyList<string> PrivacySensitive = new[]
+    public static readonly IReadOnlyList<PermissionType> PrivacySensitive = new[]
     {
-        CameraStream, CameraView, MicrophoneStream
+        PermissionType.CameraStream, PermissionType.CameraView, PermissionType.MicrophoneStream
     };
 
     /// <summary>
-    /// Owner default permission types (per v1.3 baseline Section 9.5).
+    /// Owner default permission types (per v1.5 baseline).
     /// Member/Guest defaults are disabled pending B-03 approval.
     /// </summary>
-    public static readonly IReadOnlyList<string> OwnerDefaults = new[]
+    public static readonly IReadOnlyList<PermissionType> OwnerDefaults = new[]
     {
-        DeviceControl, DeviceView, DeviceManage,
-        HomeManage, MemberManage,
-        SettingsManage,
-        AiPropose, AiExecute
+        PermissionType.DeviceControl, PermissionType.DeviceView, PermissionType.DeviceManage,
+        PermissionType.HomeManage, PermissionType.MemberManage,
+        PermissionType.SettingsManage,
+        PermissionType.AiPropose, PermissionType.AiExecute
     };
+
+    /// <summary>
+    /// Checks if a permission type is privacy-sensitive.
+    /// </summary>
+    public static bool IsPrivacySensitive(this PermissionType permissionType)
+        => PrivacySensitive.Contains(permissionType);
+
+    /// <summary>
+    /// Checks if a permission type is in Owner defaults.
+    /// </summary>
+    public static bool IsOwnerDefault(this PermissionType permissionType)
+        => OwnerDefaults.Contains(permissionType);
+
+    /// <summary>
+    /// Tries to parse a PostgreSQL enum label (e.g., "device:control") to PermissionType.
+    /// </summary>
+    public static bool TryParseFromPgLabel(string pgLabel, out PermissionType permissionType)
+    {
+        return pgLabel switch
+        {
+            "device:control" => (permissionType = PermissionType.DeviceControl, true).Item2,
+            "device:view" => (permissionType = PermissionType.DeviceView, true).Item2,
+            "device:manage" => (permissionType = PermissionType.DeviceManage, true).Item2,
+            "home:manage" => (permissionType = PermissionType.HomeManage, true).Item2,
+            "member:manage" => (permissionType = PermissionType.MemberManage, true).Item2,
+            "camera:stream" => (permissionType = PermissionType.CameraStream, true).Item2,
+            "camera:view" => (permissionType = PermissionType.CameraView, true).Item2,
+            "microphone:stream" => (permissionType = PermissionType.MicrophoneStream, true).Item2,
+            "settings:manage" => (permissionType = PermissionType.SettingsManage, true).Item2,
+            "ai:propose" => (permissionType = PermissionType.AiPropose, true).Item2,
+            "ai:execute" => (permissionType = PermissionType.AiExecute, true).Item2,
+            _ => Enum.TryParse<PermissionType>(pgLabel, true, out permissionType) // Fallback to C# enum name
+        };
+    }
+
+    /// <summary>
+    /// Gets the PostgreSQL enum label for a permission type.
+    /// </summary>
+    public static string ToPgLabel(this PermissionType permissionType)
+        => permissionType switch
+        {
+            PermissionType.DeviceControl => "device:control",
+            PermissionType.DeviceView => "device:view",
+            PermissionType.DeviceManage => "device:manage",
+            PermissionType.HomeManage => "home:manage",
+            PermissionType.MemberManage => "member:manage",
+            PermissionType.CameraStream => "camera:stream",
+            PermissionType.CameraView => "camera:view",
+            PermissionType.MicrophoneStream => "microphone:stream",
+            PermissionType.SettingsManage => "settings:manage",
+            PermissionType.AiPropose => "ai:propose",
+            PermissionType.AiExecute => "ai:execute",
+            _ => permissionType.ToString()
+        };
 }

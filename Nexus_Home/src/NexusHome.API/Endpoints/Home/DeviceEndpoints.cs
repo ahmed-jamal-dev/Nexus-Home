@@ -26,12 +26,12 @@ public static class DeviceEndpoints
             .RequireRateLimiting("Default")
             .AddEndpointFilter<PlatformRolesVersionFilter>();
 
-        // Create device - Member or Owner
+        // Create device - Requires DeviceManage permission on Home (device doesn't exist yet) or Owner
         group.MapPost("/", CreateDeviceAsync)
             .WithName("CreateDevice")
-            .RequireAuthorization("HomeMemberOrOwner")
+            .RequireAuthorization("Permission:DeviceManageHome")
             .WithSummary("Add a device to a home")
-            .WithDescription("Registers a new device with a globally unique ExternalId, capabilities, and metadata. Requires home membership (Owner or Member).")
+            .WithDescription("Registers a new device with a globally unique ExternalId, capabilities, and metadata. Requires DeviceManage permission on the home or Owner role.")
             .Produces<AddDeviceResponse>(StatusCodes.Status201Created)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
@@ -61,12 +61,12 @@ public static class DeviceEndpoints
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
-        // Update device - Member or Owner
+        // Update device - Requires DeviceManage permission or Owner
         group.MapPut("/{deviceId:guid}", UpdateDeviceAsync)
             .WithName("UpdateDevice")
-            .RequireAuthorization("HomeMemberOrOwner")
+            .RequireAuthorization("Permission:DeviceManage")
             .WithSummary("Update a device")
-            .WithDescription("Updates device name, device type, capabilities, metadata, firmware version, manufacturer, or model. Full replacement for capabilities and metadata. Requires home membership (Owner or Member).")
+            .WithDescription("Updates device name, device type, capabilities, metadata, firmware version, manufacturer, or model. Full replacement for capabilities and metadata. Requires DeviceManage permission on the home or Owner role.")
             .Produces<UpdateDeviceResponse>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
@@ -74,12 +74,12 @@ public static class DeviceEndpoints
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict);
 
-        // Assign/Unassign device to room - Member or Owner
+        // Assign/Unassign device to room - Requires DeviceManage permission or Owner
         group.MapPatch("/{deviceId:guid}/room", AssignDeviceToRoomAsync)
             .WithName("AssignDeviceToRoom")
-            .RequireAuthorization("HomeMemberOrOwner")
+            .RequireAuthorization("Permission:DeviceManage")
             .WithSummary("Assign or unassign a device to/from a room")
-            .WithDescription("Moves a device to a different room or unassigns it (null roomId). Room must belong to the same home. Requires home membership (Owner or Member).")
+            .WithDescription("Moves a device to a different room or unassigns it (null roomId). Room must belong to the same home. Requires DeviceManage permission on the home or Owner role.")
             .Produces<AssignDeviceToRoomResponse>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
@@ -87,12 +87,12 @@ public static class DeviceEndpoints
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict);
 
-        // Soft delete device - Member or Owner
+        // Soft delete device - Requires DeviceManage permission or Owner
         group.MapDelete("/{deviceId:guid}", RemoveDeviceAsync)
             .WithName("RemoveDevice")
-            .RequireAuthorization("HomeMemberOrOwner")
+            .RequireAuthorization("Permission:DeviceManage")
             .WithSummary("Remove a device")
-            .WithDescription("Soft deletes a device, excluding it from lists. RoomId is preserved on device removal. Requires home membership (Owner or Member).")
+            .WithDescription("Soft deletes a device, excluding it from lists. RoomId is preserved on device removal. Requires DeviceManage permission on the home or Owner role.")
             .Produces(StatusCodes.Status204NoContent)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status403Forbidden)

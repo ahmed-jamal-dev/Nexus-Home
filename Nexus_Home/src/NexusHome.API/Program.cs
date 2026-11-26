@@ -20,6 +20,7 @@ using NexusHome.Api.Filters;
 using NexusHome.Application;
 using NexusHome.Application.Common.Authorization;
 using NexusHome.Application.Interfaces;
+using NexusHome.Domain.Enums;
 using NexusHome.Domain.Entities;
 using NexusHome.Infrastructure;
 using NexusHome.Infrastructure.Authentication;
@@ -132,14 +133,21 @@ public class Program
                     },
                     OnChallenge = context =>
                     {
+                        // Tell JwtBearer we've handled the challenge, preventing default HandleChallengeAsync
                         context.HandleResponse();
-                        context.Response.StatusCode = StatusCodes.Status401Unauthorized;
-                        context.Response.ContentType = "application/json";
-                        return context.Response.WriteAsJsonAsync(new
+
+                        // Only write body if response hasn't started
+                        if (!context.Response.HasStarted)
                         {
-                            error = "Unauthorized",
-                            message = "Authentication required"
-                        });
+                            context.Response.ContentType = "application/json";
+                            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                            return context.Response.WriteAsJsonAsync(new
+                            {
+                                error = "Unauthorized",
+                                message = "Authentication required"
+                            });
+                        }
+                        return Task.CompletedTask;
                     }
                 };
             });
@@ -148,9 +156,22 @@ public class Program
         builder.Services.AddHttpContextAccessor();
 
         // Register authorization handlers (Task 2.5 - Role Model)
-        builder.Services.AddScoped<AuthorizationHandler<HomeOwnerRequirement>, HomeOwnerHandler>();
-        builder.Services.AddScoped<AuthorizationHandler<HomeMemberOrOwnerRequirement>, HomeMemberOrOwnerHandler>();
-        builder.Services.AddScoped<AuthorizationHandler<HomeAnyMemberRequirement>, HomeAnyMemberHandler>();
+        builder.Services.AddScoped<HomeOwnerHandler>();
+        builder.Services.AddScoped<AuthorizationHandler<HomeOwnerRequirement>>(sp => sp.GetRequiredService<HomeOwnerHandler>());
+        builder.Services.AddScoped<IAuthorizationHandler>(sp => sp.GetRequiredService<HomeOwnerHandler>());
+
+        builder.Services.AddScoped<HomeMemberOrOwnerHandler>();
+        builder.Services.AddScoped<AuthorizationHandler<HomeMemberOrOwnerRequirement>>(sp => sp.GetRequiredService<HomeMemberOrOwnerHandler>());
+        builder.Services.AddScoped<IAuthorizationHandler>(sp => sp.GetRequiredService<HomeMemberOrOwnerHandler>());
+
+        builder.Services.AddScoped<HomeAnyMemberHandler>();
+        builder.Services.AddScoped<AuthorizationHandler<HomeAnyMemberRequirement>>(sp => sp.GetRequiredService<HomeAnyMemberHandler>());
+        builder.Services.AddScoped<IAuthorizationHandler>(sp => sp.GetRequiredService<HomeAnyMemberHandler>());
+
+        // Task 2.6 - Permission Model
+        builder.Services.AddScoped<HasPermissionHandler>();
+        builder.Services.AddScoped<AuthorizationHandler<HasPermissionRequirement>>(sp => sp.GetRequiredService<HasPermissionHandler>());
+        builder.Services.AddScoped<IAuthorizationHandler>(sp => sp.GetRequiredService<HasPermissionHandler>());
 
         // Authorization policies
         builder.Services.AddAuthorization(options =>
@@ -214,6 +235,46 @@ public class Program
 
             options.AddPolicy("HomeAnyMember", policy =>
                 policy.Requirements.Add(new HomeAnyMemberRequirement()));
+
+            // Permission-based policies (Task 2.6 - Permission Model)
+            // These use HasPermissionRequirement with specific permission types
+            // Device endpoints use "deviceId" route parameter
+            options.AddPolicy("Permission:DeviceControl", policy =>
+                policy.Requirements.Add(new NexusHome.Api.Authorization.Requirements.HasPermissionRequirement(PermissionType.DeviceControl, TargetType.Device, "deviceId")));
+
+            options.AddPolicy("Permission:DeviceView", policy =>
+                policy.Requirements.Add(new NexusHome.Api.Authorization.Requirements.HasPermissionRequirement(PermissionType.DeviceView, TargetType.Device, "deviceId")));
+
+            options.AddPolicy("Permission:DeviceManage", policy =>
+                policy.Requirements.Add(new NexusHome.Api.Authorization.Requirements.HasPermissionRequirement(PermissionType.DeviceManage, TargetType.Device, "deviceId")));
+
+            // DeviceManage at Home scope - for Create Device (device doesn't exist yet)
+            options.AddPolicy("Permission:DeviceManageHome", policy =>
+                policy.Requirements.Add(new NexusHome.Api.Authorization.Requirements.HasPermissionRequirement(PermissionType.DeviceManage, TargetType.Home)));
+
+            options.AddPolicy("Permission:HomeManage", policy =>
+                policy.Requirements.Add(new NexusHome.Api.Authorization.Requirements.HasPermissionRequirement(PermissionType.HomeManage, TargetType.Home)));
+
+            options.AddPolicy("Permission:MemberManage", policy =>
+                policy.Requirements.Add(new NexusHome.Api.Authorization.Requirements.HasPermissionRequirement(PermissionType.MemberManage, TargetType.Home)));
+
+            options.AddPolicy("Permission:CameraStream", policy =>
+                policy.Requirements.Add(new NexusHome.Api.Authorization.Requirements.HasPermissionRequirement(PermissionType.CameraStream, TargetType.Camera)));
+
+            options.AddPolicy("Permission:CameraView", policy =>
+                policy.Requirements.Add(new NexusHome.Api.Authorization.Requirements.HasPermissionRequirement(PermissionType.CameraView, TargetType.Camera)));
+
+            options.AddPolicy("Permission:MicrophoneStream", policy =>
+                policy.Requirements.Add(new NexusHome.Api.Authorization.Requirements.HasPermissionRequirement(PermissionType.MicrophoneStream, TargetType.Microphone)));
+
+            options.AddPolicy("Permission:SettingsManage", policy =>
+                policy.Requirements.Add(new NexusHome.Api.Authorization.Requirements.HasPermissionRequirement(PermissionType.SettingsManage, TargetType.Home)));
+
+            options.AddPolicy("Permission:AiPropose", policy =>
+                policy.Requirements.Add(new NexusHome.Api.Authorization.Requirements.HasPermissionRequirement(PermissionType.AiPropose, TargetType.Home)));
+
+            options.AddPolicy("Permission:AiExecute", policy =>
+                policy.Requirements.Add(new NexusHome.Api.Authorization.Requirements.HasPermissionRequirement(PermissionType.AiExecute, TargetType.Home)));
         });
 
         // Rate limiting
@@ -343,6 +404,13 @@ public class Program
         builder.Logging.AddFilter("Microsoft.EntityFrameworkCore.Update", LogLevel.Warning);
         builder.Logging.AddFilter("Microsoft.AspNetCore.Routing", LogLevel.Warning);
 
+        // Configure JSON serialization for Minimal APIs
+        builder.Services.ConfigureHttpJsonOptions(options =>
+        {
+            options.SerializerOptions.Converters.Add(new NexusHome.Application.Common.Serialization.PermissionTypeJsonConverter());
+            options.SerializerOptions.Converters.Add(new NexusHome.Application.Common.Serialization.TargetTypeJsonConverter());
+        });
+
         var app = builder.Build();
 
         // Configure the HTTP request pipeline.
@@ -434,6 +502,7 @@ public class Program
         app.MapDeviceEndpoints();
         app.MapPlatformEndpoints();
         app.MapMemberEndpoints();
+        app.MapPermissionEndpoints();
 
         app.UseHttpsRedirection();
 

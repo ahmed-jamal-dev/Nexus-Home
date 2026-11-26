@@ -25,12 +25,12 @@ public static class RoomEndpoints
             .RequireRateLimiting("Default")
             .AddEndpointFilter<PlatformRolesVersionFilter>();
 
-        // Create room - Member or Owner
+        // Create room - Requires HomeManage permission or Owner
         group.MapPost("/", CreateRoomAsync)
             .WithName("CreateRoom")
-            .RequireAuthorization("HomeMemberOrOwner")
+            .RequireAuthorization("Permission:HomeManage")
             .WithSummary("Create a room in a home")
-            .WithDescription("Creates a new room with a unique name within the home. Requires home membership (Owner or Member).")
+            .WithDescription("Creates a new room with a unique name within the home. Requires HomeManage permission on the home or Owner role.")
             .Produces<CreateRoomResponse>(StatusCodes.Status201Created)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
@@ -60,12 +60,12 @@ public static class RoomEndpoints
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
-        // Update room name - Member or Owner
+        // Update room name - Requires HomeManage permission or Owner
         group.MapPut("/{roomId:guid}", UpdateRoomAsync)
             .WithName("UpdateRoom")
-            .RequireAuthorization("HomeMemberOrOwner")
+            .RequireAuthorization("Permission:HomeManage")
             .WithSummary("Update a room name")
-            .WithDescription("Updates the name of a room. Requires home membership (Owner or Member).")
+            .WithDescription("Updates the name of a room. Requires HomeManage permission on the home or Owner role.")
             .Produces<UpdateRoomResponse>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
@@ -73,10 +73,10 @@ public static class RoomEndpoints
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict);
 
-        // Soft delete room - Member or Owner
+        // Soft delete room - Requires HomeManage permission or Owner
         group.MapDelete("/{roomId:guid}", DeleteRoomAsync)
             .WithName("DeleteRoom")
-            .RequireAuthorization("HomeMemberOrOwner")
+            .RequireAuthorization("Permission:HomeManage")
             .WithSummary("Delete a room")
             .WithDescription("Soft deletes a room, removing it from the home. Associated devices will have their room assignment cleared. Requires home membership (Owner or Member).")
             .Produces(StatusCodes.Status204NoContent)
